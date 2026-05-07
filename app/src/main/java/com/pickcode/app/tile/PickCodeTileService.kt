@@ -38,13 +38,22 @@ class PickCodeTileService : TileService() {
         }
 
         // 折叠面板并触发识别
+        // 先触发服务（让服务进入 handleTrigger 流程：有权限则直接截图，无权限则拉起授权页）
+        PickCodeService.triggerCapture(this)
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startActivityAndCollapse(
-                Intent(this, com.pickcode.app.ui.activity.PermissionActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    putExtra("from_tile", true)
-                }
-            )
+            // API 34+: 使用 startActivityAndCollapse 折叠面板 + 打开透明授权页
+            // 服务已通过 triggerCapture 启动，此处仅负责折叠面板和展示授权界面
+            try {
+                startActivityAndCollapse(
+                    Intent(this, com.pickcode.app.ui.activity.PermissionActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        putExtra("from_tile", true)
+                    }
+                )
+            } catch (_: Exception) {
+                // 某些 ROM 可能限制 Tile 启动 Activity，忽略
+            }
         } else {
             // API < 34: 折叠状态栏（通过 StatusBarManager 反射）
             try {
@@ -54,7 +63,6 @@ class PickCodeTileService : TileService() {
             } catch (_: Exception) {
                 // 忽略，尽力而为
             }
-            PickCodeService.triggerCapture(this)
         }
 
         // 1.5 秒后恢复图标状态

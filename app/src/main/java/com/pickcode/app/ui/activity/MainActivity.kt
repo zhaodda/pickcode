@@ -34,8 +34,10 @@ class MainActivity : AppCompatActivity() {
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                // 仅显示超级岛提示，不启动服务（服务按需启动）
+                // 权限通过 → 启动常驻服务 + 显示引导
+                startPickCodeService()
                 showIslandSupportHint()
+                showTileGuideIfNeeded()
             } else {
                 Snackbar.make(
                     binding.root,
@@ -58,7 +60,9 @@ class MainActivity : AppCompatActivity() {
         setupRecyclerView()
         setupFab()
         observeRecords()
-        checkAndRequestPermissions()
+
+        // 先申请权限，权限通过后再启动服务和显示引导
+        checkAndRequestPermissionsAndStartService()
     }
 
     private fun setupRecyclerView() {
@@ -99,17 +103,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 权限检查与申请
+     * 权限检查与申请 → 通过后启动常驻服务
      *
      * 新方案（小米超级岛）：
      * - ✅ 不再需要 SYSTEM_ALERT_WINDOW（悬浮窗权限）
      * - 仅需 POST_NOTIFICATIONS（Android 13+ 通知权限）
      * - 小米设备额外需要：在设置中手动开启「焦点通知」权限
      *
-     * ⚠️ 不再在此处启动 PickCodeService，避免 Android 14+ FGS 限制导致崩溃
-     * 服务仅在用户点击截屏按钮或 Quick Settings Tile 时按需启动
+     * ✅ 权限通过后会启动 PickCodeService 前台服务，提供：
+     *   1. 通知栏常驻通知（点击可触发识别）
+     *   2. Quick Settings Tile 可用
      */
-    private fun checkAndRequestPermissions() {
+    private fun checkAndRequestPermissionsAndStartService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Android 13+ 需要动态申请通知权限
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
@@ -120,8 +125,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 权限已满足，仅显示超级岛提示（不启动服务）
+        // 权限已满足 → 启动服务 + 显示引导
+        startPickCodeService()
         showIslandSupportHint()
+        showTileGuideIfNeeded()
     }
 
     /**
@@ -180,13 +187,76 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * 首次使用引导：教用户添加 Quick Settings Tile（快捷开关）
+     *
+     * 引导条件（仅首次）：
+     * - SharedPreferences 中未记录 "tile_guide_shown"
+     *
+     * 引导方式：Snackbar + 跳转 Quick Settings 编辑页面
+     */
+    private fun showTileGuideIfNeeded() {
+        val prefs = getSharedPreferences("pickcode_prefs", MODE_PRIVATE)
+        if (prefs.getBoolean("tile_guide_shown", false)) return
+
+        // 延迟 1.5 秒显示，避免和超级岛提示 Snackbar 冲突
+        binding.root.postDelayed({
+            Snackbar.make(
+                binding.root,
+                "💡 下拉通知栏 → 点「编辑」→ 找到「码速达」并添加，即可在任意屏幕一键识别",
+                Snackbar.LENGTH_LONG
+            ).setAction("去编辑") {
+                try {
+                    // 尝试直接打开 QS 编辑页面（部分 ROM 支持）
+                    startActivity(Intent("android.quicksettings.action.QS_EDIT").apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    })
+                } catch (_: Exception) {
+                    // 降级提示：告诉用户手动操作
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle("添加快捷开关")
+                        .setMessage(
+                            "1. 从屏幕顶部向下滑出通知栏\n" +
+                            "2. 点击右下角「编辑」按钮（铅笔图标 ⚡）\n" +
+                            "3. 找到「码速达」图标\n" +
+                            "4. 按住拖动到上方快捷区域即可\n\n" +
+                            "添加后即可在任意界面下拉通知栏快速触发识别！"
+                        )
+                        .setPositiveButton("知道了", null)
+                        .show()
+                }
+            }.show()
+
+            // 标记已显示过引导
+            prefs.edit().putBoolean("tile_guide_shown", true).apply()
+        }, 1500)
+    }
+
+    /**
+     * 安全启动 PickCodeService（前台服务）
+     *
+     * 使用 try-catch 保护，防止 Android 14+ FGS 限制导致崩溃
+     * 同时延迟 500ms 启动，确保 Activity 完全进入 resumed 状态
+     */
     private fun startPickCodeService() {
-        val i = Intent(this, PickCodeService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(i)
-        } else {
-            startService(i)
-        }
+        binding.root.postDelayed({
+            try {
+                val i = Intent(this, PickCodeService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(i)
+                } else {
+                    startService(i)
+                }
+            } catch (e: Exception) {
+                // 极端情况：FGS 启动失败，不崩溃，用户仍可用 FAB 和 Tile
+                e.printStackTrace()
+                Snackbar.make(
+                    binding.root,
+                    "后台服务启动失败，可点击下方按钮手动识别",
+                    Snackbar.LENGTH_SHORT
+                ).show()
+            }
+        }, 500)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
