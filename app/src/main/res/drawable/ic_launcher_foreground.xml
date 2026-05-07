@@ -22,7 +22,7 @@
         android:pathData="M34,34 L34,42 M34,34 L42,34 M74,34 L74,42 M74,34 L66,34 M34,74 L34,66 M34,74 L42,74 M74,74 L74,66 M74,74 L66,74"/>
 
     <!-- 中心 "码" 字简化：三个色块 -->
-    <rect android:x="44" android:y="46" android:width="8" android:height="8" android:fillColor="#FFFFFF"/>
-    <rect android:x="56" android:y="46" android:width="8" android:height="8" android:fillColor="#AFA9EC"/>
-    <rect android:x="44" android:y="58" android:width="20" android:height="4" android:fillColor="#FFFFFF"/>
+    <rect android:x="44dp" android:y="46dp" android:width="8dp" android:height="8dp" android:fillColor="#FFFFFF"/>
+    <rect android:x="56dp" android:y="46dp" android:width="8dp" android:height="8dp" android:fillColor="#AFA9EC"/>
+    <rect android:x="44dp" android:y="58dp" android:width="20dp" android:height="4dp" android:fillColor="#FFFFFF"/>
 </vector>

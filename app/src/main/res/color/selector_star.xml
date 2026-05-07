@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 收藏按钮 tint 颜色选择器 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:enterFadeDuration="150"
+    android:exitFadeDuration="150">
+    <item android:state_selected="true" android:color="#EF9F27"/>
+    <item android:color="#B4B2A9"/>
+</selector>
