@@ -34,7 +34,8 @@ class MainActivity : AppCompatActivity() {
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                startPickCodeService()
+                // 仅显示超级岛提示，不启动服务（服务按需启动）
+                showIslandSupportHint()
             } else {
                 Snackbar.make(
                     binding.root,
@@ -104,6 +105,9 @@ class MainActivity : AppCompatActivity() {
      * - ✅ 不再需要 SYSTEM_ALERT_WINDOW（悬浮窗权限）
      * - 仅需 POST_NOTIFICATIONS（Android 13+ 通知权限）
      * - 小米设备额外需要：在设置中手动开启「焦点通知」权限
+     *
+     * ⚠️ 不再在此处启动 PickCodeService，避免 Android 14+ FGS 限制导致崩溃
+     * 服务仅在用户点击截屏按钮或 Quick Settings Tile 时按需启动
      */
     private fun checkAndRequestPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -116,8 +120,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 权限已满足，启动服务并提示超级岛状态
-        startPickCodeService()
+        // 权限已满足，仅显示超级岛提示（不启动服务）
         showIslandSupportHint()
     }
 
