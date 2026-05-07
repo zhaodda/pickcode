@@ -122,13 +122,17 @@ class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
     override fun showCode(record: CodeRecord) {
         AppLog.i(TAG, "showCode 被调用: code=${record.code}")
         val protocolVersion = getFocusProtocolVersion(context)
-        Log.i(TAG, "showCode: focusProtocolVersion=$protocolVersion")
+        val hasPermission = hasFocusPermission(context)
+        Log.i(TAG, "showCode: focusProtocolVersion=$protocolVersion, hasFocusPermission=$hasPermission")
         try {
+            // 先取消旧通知再发新的，确保每次都能触发超级岛展开
+            notificationManager.cancel(ISLAND_NOTIFICATION_ID)
+
             val notification = buildCodeNotification(record)
             // 验证超级岛参数是否成功注入
             val focusParam = notification.extras.getString("miui.focus.param")
             if (focusParam != null) {
-                AppLog.i(TAG, "✅ miui.focus.param 已注入 (${focusParam.length}字符), protocol=$protocolVersion")
+                AppLog.i(TAG, "✅ miui.focus.param 已注入 (${focusParam.length}字符), protocol=$protocolVersion, hasPermission=$hasPermission")
                 Log.i(TAG, "miui.focus.param injected: ${focusParam.take(120)}")
             } else {
                 AppLog.w(TAG, "⚠️ miui.focus.param 为空! protocolVersion=$protocolVersion, 将以普通通知展示")
@@ -237,26 +241,42 @@ class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
         else                 -> null
     }
 
-    /** 完整超级岛 JSON（澎湃OS3 专用，含 bigIslandArea / smallIslandArea / shareData） */
+    /** 完整超级岛 JSON（澎湃OS3 专用，含 bigIslandArea / smallIslandArea / shareData）
+     *
+     * 参考官方文档：https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2131
+     * 关键字段说明：
+     * - timeout: 通知存活时间（分钟），默认720（12小时）
+     * - islandTimeout: 岛显示超时（秒），默认3600（60分钟）
+     * - reopen: "close"=不再展示 / "reopen"=取消后可重新发送展示
+     * - islandFirstFloat: true=首次展开态 / false=摘要态
+     */
     private fun buildSuperIslandJson(record: CodeRecord, typeLabel: String): String {
         val color = getHighlightColor(record.codeType)
         return JSONObject().apply {
             put("param_v2", JSONObject().apply {
-                put("business", "pickcode")
-                put("islandFirstFloat", true)
-                put("enableFloat", false)
-                put("updatable", false)
-                put("filterWhenNoPermission", false)
+                // === 顶层配置 ===
+                put("business", "express")          // 业务场景：快递/物流
+                put("islandFirstFloat", true)       // 首次展示为展开态
+                put("enableFloat", true)             // 更新时也展开（方便用户看到变化）
+                put("updatable", false)              // 不需要后台更新
+                put("filterWhenNoPermission", false) // 无权限也不过滤（降级为普通通知）
+                put("reopen", "reopen")              // 允许重新展示
+                put("timeout", 30)                   // 30分钟后自动消失（分钟）
+
+                // === 状态栏/息屏文案 ===
                 put("ticker", "${typeLabel}：${record.code}")
                 put("tickerPic", KEY_PIC_TICKER)
                 put("aodTitle", "取件码 ${record.code}")
                 put("aodPic", KEY_PIC_ICON)
 
+                // === 超级岛核心配置 ===
                 put("param_island", JSONObject().apply {
-                    put("islandProperty", 1)
-                    put("islandTimeout", 15)
+                    put("islandProperty", 1)         // 1=信息展示为主
+                    put("islandTimeout", 60)         // 岛展示60秒后自动收缩（秒）
                     put("highlightColor", color)
+                    put("islandOrder", false)        // 摘要态时不更新排序
 
+                    // 大岛（展开态）：左图右文
                     put("bigIslandArea", JSONObject().apply {
                         put("imageTextInfoLeft", JSONObject().apply {
                             put("type", 1)
@@ -275,12 +295,14 @@ class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
                         })
                     })
 
+                    // 小岛（摘要态/胶囊态）
                     put("smallIslandArea", JSONObject().apply {
                         put("picInfo", JSONObject().apply {
                             put("type", 1); put("pic", KEY_PIC_ICON)
                         })
                     })
 
+                    // 分享拖拽数据
                     put("shareData", JSONObject().apply {
                         put("title", typeLabel)
                         put("content", record.code)
@@ -289,6 +311,7 @@ class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
                     })
                 })
 
+                // === 降级时的焦点通知数据（非超级岛设备或权限不足时使用）===
                 put("baseInfo", JSONObject().apply {
                     put("title", typeLabel)
                     put("content", "取件码：${record.code}")
@@ -296,6 +319,7 @@ class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
                     put("type", 2)
                 })
 
+                // === 操作提示 ===
                 put("hintInfo", JSONObject().apply {
                     put("type", 1)
                     put("title", "点击复制")
@@ -338,13 +362,17 @@ class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // 官方文档示例使用 IMPORTANCE_DEFAULT
+            // IMPORTANCE_HIGH 在某些ROM版本可能导致通知行为异常（如自动折叠/不展示超级岛）
             val channel = NotificationChannel(
-                CHANNEL_ISLAND, CHANNEL_ISLAND_NAME, NotificationManager.IMPORTANCE_HIGH
+                CHANNEL_ISLAND, CHANNEL_ISLAND_NAME, NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = "显示识别到的取件码、取餐码等验证码（支持小米超级岛）"
                 setShowBadge(false)
                 enableLights(false)
                 enableVibration(false)
+                // ⚠️ 不设置声音，避免打扰用户
+                setSound(null, null)
             }
             notificationManager.createNotificationChannel(channel)
         }
