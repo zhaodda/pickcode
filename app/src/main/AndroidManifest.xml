@@ -61,10 +61,10 @@
             android:parentActivityName=".ui.activity.MainActivity" />
 
         <!-- 前台服务：截屏 + OCR + 超级岛通知 -->
+        <!-- foregroundServiceType 不设为 mediaProjection，避免 API 34 必须持 token 才能 startForeground 的限制 -->
         <service
             android:name=".service.PickCodeService"
-            android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
+            android:exported="false" />
 
         <!-- Quick Settings Tile（快捷开关） -->
         <service
