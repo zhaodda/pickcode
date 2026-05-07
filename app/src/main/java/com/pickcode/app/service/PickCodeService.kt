@@ -19,6 +19,7 @@ import androidx.core.app.ServiceCompat
 import com.pickcode.app.PickCodeApp
 import com.pickcode.app.R
 import com.pickcode.app.data.model.CodeRecord
+import com.pickcode.app.data.model.CodeType
 import com.pickcode.app.data.repository.CodeRepository
 import com.pickcode.app.ocr.CodeExtractor
 import com.pickcode.app.overlay.IslandNotificationManager
@@ -126,7 +127,9 @@ class PickCodeService : Service() {
     private var pendingResultData: Intent? = null
 
     /** 标记是否有有效的 MediaProjection 授权（用于外部查询） */
-    var hasMediaProjection: Boolean get() = mediaProjection != null
+    var hasMediaProjection: Boolean
+        get() = mediaProjection != null
+        private set(_) {}
 
     override fun onCreate() {
         super.onCreate()
@@ -302,14 +305,12 @@ class PickCodeService : Service() {
      * 构建常驻前台通知
      *
      * 通知交互设计：
-     * - 点击通知主体 → 打开 MainActivity（同时携带触发识别的标记）
-     * - "立即识别"按钮 → 发送 ACTION_TRIGGER（如果已有权限则直接截图）
+     * - 点击通知主体 → 打开 MainActivity
+     * - "立即识别"按钮 → 直接启动 PermissionActivity（录屏选择框）
      * - "停止服务"按钮 → 停止服务
      *
-     * 设计原因：
-     * - Android 对通知 PendingIntent 的限制：getService 在某些场景可能无法正确分发
-     * - 打开 MainActivity 是最可靠的交互方式
-     * - MainActivity 的 onResume 会检查是否需要触发识别
+     * 设计原则：所有触发入口统一走 PermissionActivity，
+     * 用户选完屏幕后由 PermissionActivity 将结果回传给 Service，避免 Service 广播依赖
      */
     private fun buildPersistentNotification(): Notification {
         // 点击通知主体 → 打开 MainActivity
@@ -317,15 +318,18 @@ class PickCodeService : Service() {
             this, 0,
             Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putExtra("from_notification", true)
             },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // "立即识别" 按钮 → 触发截屏（发送 ACTION_TRIGGER）
-        val triggerIntent = PendingIntent.getService(
+        // "立即识别" 按钮 → 直接启动 PermissionActivity（录屏选择框）
+        // 用户选完屏幕后，PermissionActivity 会将 MediaProjection 结果回传给 Service
+        val triggerIntent = PendingIntent.getActivity(
             this, 1,
-            Intent(this, PickCodeService::class.java).apply { action = ACTION_TRIGGER },
+            Intent(this, com.pickcode.app.ui.activity.PermissionActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                putExtra("from_notification_action", true)
+            },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 

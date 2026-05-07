@@ -1,11 +1,9 @@
 package com.pickcode.app.ui.activity
 
 import android.Manifest
-import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Typeface
 import android.os.Build
@@ -68,22 +66,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-    /**
-     * 监听 Service 发出的"需要截屏权限"广播
-     *
-     * 当 Service 收到 ACTION_TRIGGER 但没有 MediaProjection 权限时，
-     * 会发送 ACTION_NEED_PERMISSION 广播，MainActivity 收到后启动 PermissionActivity
-     */
-    private val permissionReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == PickCodeService.ACTION_NEED_PERMISSION) {
-                startActivity(Intent(this@MainActivity, PermissionActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                })
-            }
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -98,20 +80,6 @@ class MainActivity : AppCompatActivity() {
         // 请求 Tile 进入 listening 状态
         requestTileListeningState()
 
-        // 注册广播接收器（监听 Service 的权限请求）
-        @Suppress("DEPRECATION")
-        registerReceiver(
-            permissionReceiver,
-            IntentFilter(PickCodeService.ACTION_NEED_PERMISSION),
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
-        )
-
-        // 检查是否从通知栏点击进入（需要触发识别）
-        if (intent?.getBooleanExtra("from_notification", false) == true) {
-            // 从通知栏进入，延迟一点等 UI 渲染完成后再触发
-            binding.root.postDelayed({ triggerCaptureFromMain() }, 300)
-        }
-
         // 申请权限 → 启动服务
         checkAndRequestPermissionsAndStartService()
     }
@@ -119,10 +87,6 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         setIntent(intent)
-        // singleTop 模式：从通知栏再次点击时触发
-        if (intent?.getBooleanExtra("from_notification", false) == true) {
-            triggerCaptureFromMain()
-        }
     }
 
     override fun onResume() {
@@ -133,7 +97,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(permissionReceiver)
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -234,6 +197,11 @@ class MainActivity : AppCompatActivity() {
         }
         layout.addView(titleView)
 
+        // 输入框（先声明，后面初始化）
+        lateinit var inputEdit: TextInputEditText
+        // 类型选择（先声明，后面初始化）
+        lateinit var typeSelector: LinearLayout
+
         // 输入方式切换
         var isPasteMode = true // 默认粘贴模式
 
@@ -264,7 +232,7 @@ class MainActivity : AppCompatActivity() {
         layout.addView(modeSwitch)
 
         // 输入框
-        val inputEdit = TextInputEditText(this).apply {
+        inputEdit = TextInputEditText(this).apply {
             hint = "在此粘贴整条取件码短信...\n例如：【丰巢】您有一个包裹，取件码：5-8-3-2"
             isSingleLine = false
             maxLines = 5
@@ -275,7 +243,7 @@ class MainActivity : AppCompatActivity() {
         layout.addView(inputEdit)
 
         // 类型选择（手动模式下显示）
-        val typeSelector = LinearLayout(this).apply {
+        typeSelector = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             visibility = android.view.View.GONE
             setPadding(0, 16, 0, 0)

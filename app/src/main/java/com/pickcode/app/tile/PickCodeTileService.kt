@@ -6,14 +6,13 @@ import android.os.Handler
 import android.os.Looper
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import com.pickcode.app.service.PickCodeService
 
 /**
  * 快速设置磁贴（Quick Settings Tile）
  *
  * 用户可在下拉通知栏添加并点击，一键触发截屏识别。
  *
- * ══ 点击后的完整流程（v1.0.3 修复）══
+ * ══ 点击后的完整流程（v1.0.4 修复）══
  *
  * ┌──────────────┐
  * │  用户点击 Tile  │
@@ -42,9 +41,9 @@ import com.pickcode.app.service.PickCodeService
  *                       │ → 展示灵动岛          │
  *                       └─────────────────────┘
  *
- * 关键修复：
- * - 不再同时调用 triggerCapture + startActivityAndCollapse（避免竞争）
- * - 统一由 PermissionActivity 作为唯一授权入口
+ * v1.0.4 修复要点：
+ * - 不再调用 PickCodeService.triggerCapture()（避免 Service 无权限时发无效广播）
+ * - 直接启动 PermissionActivity 作为唯一入口，简单可靠
  */
 class PickCodeTileService : TileService() {
 
@@ -65,44 +64,35 @@ class PickCodeTileService : TileService() {
     override fun onClick() {
         super.onClick()
 
-        // 1. 切换到激活状态（视觉反馈）
+        // 1. 切换到激活状态（视觉反馈：让用户看到点击生效了）
         qsTile?.apply {
             state = Tile.STATE_ACTIVE
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) subtitle = "识别中..."
             updateTile()
         }
 
-        // 2. 先确保服务在运行（不触发截图，只是让前台通知常驻）
-        try {
-            PickCodeService.triggerCapture(this)
-        } catch (_: Exception) {
-            // 服务可能已在运行，忽略
+        // 2. 直接启动 PermissionActivity（录屏授权页）— 唯一入口
+        // 用户选择屏幕后，PermissionActivity 将 MediaProjection 结果回传给 Service
+        val permissionIntent = Intent(
+            this,
+            com.pickcode.app.ui.activity.PermissionActivity::class.java
+        ).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            putExtra("from_tile", true)
         }
 
-        // 3. 启动 PermissionActivity（系统录屏授权页）并折叠面板
-        // 这是唯一的截屏授权入口，用户选择屏幕后由 PermissionActivity 回传结果给 Service
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // API 34+: startActivityAndCollapse 同时折叠通知面板 + 启动 Activity
             try {
-                startActivityAndCollapse(
-                    Intent(this, com.pickcode.app.ui.activity.PermissionActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        putExtra("from_tile", true)
-                    }
-                )
+                startActivityAndCollapse(permissionIntent)
             } catch (_: Exception) {
-                // 某些 ROM 可能限制，尝试用普通 startActivity
+                // 某些 ROM 可能限制，降级为普通 startActivity
                 try {
-                    startActivity(
-                        Intent(this, com.pickcode.app.ui.activity.PermissionActivity::class.java).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            putExtra("from_tile", true)
-                        }
-                    )
+                    startActivity(permissionIntent)
                 } catch (_: Exception) { /* 无力回天 */ }
             }
         } else {
-            // API < 34: 先折叠状态栏，再启动授权页
+            // API < 34: 先反射折叠状态栏，再启动授权页
             try {
                 val statusBarManager = getSystemService("statusbar")
                 val collapseMethod = statusBarManager?.javaClass?.getMethod("collapsePanels")
@@ -110,17 +100,11 @@ class PickCodeTileService : TileService() {
             } catch (_: Exception) { /* 忽略 */ }
 
             try {
-                startActivity(
-                    Intent(this, com.pickcode.app.ui.activity.PermissionActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        putExtra("from_tile", true)
-                    }
-                )
+                startActivity(permissionIntent)
             } catch (_: Exception) { /* 忽略 */ }
         }
 
-        // 4. 1.5 秒后恢复图标状态
+        // 3. 1.5 秒后恢复图标状态
         handler.postDelayed({
             qsTile?.apply {
                 state = Tile.STATE_INACTIVE
