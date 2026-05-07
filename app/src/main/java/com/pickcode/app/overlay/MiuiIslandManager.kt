@@ -10,10 +10,12 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import androidx.annotation.RequiresApi
 import com.pickcode.app.R
 import com.pickcode.app.data.model.CodeRecord
 import com.pickcode.app.ui.activity.MainActivity
+import com.pickcode.app.util.AppLog
 import org.json.JSONObject
 
 /**
@@ -42,6 +44,8 @@ import org.json.JSONObject
 class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
 
     override val managerName = "小米超级岛"
+
+    private val TAG = "MiuiIslandManager"
 
     companion object {
         // ── 小米超级岛 Bundle Key（来自官方文档）──
@@ -98,13 +102,45 @@ class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
     private val notificationManager =
         context.getSystemService(NotificationManager::class.java)
 
-    init { createNotificationChannel() }
+    init {
+        createNotificationChannel()
+        // 启动时记录设备支持情况（一次性诊断）
+        val protocol = getFocusProtocolVersion(context)
+        val islandProp = isSupportIslandProperty()
+        Log.i(TAG, "=== MiuiIslandManager 初始化诊断 ===")
+        Log.i(TAG, "  focusProtocolVersion = $protocol (>=3 为超级岛)")
+        Log.i(TAG, "  persist.sys.feature.island = $islandProp")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val enabled = notificationManager.areNotificationsEnabled()
+            Log.i(TAG, "  notificationsEnabled = $enabled")
+        }
+        AppLog.i(TAG, "小米超级岛初始化: protocol=$protocol, islandProperty=$islandProp")
+    }
 
     // ─── 公开方法 ─────────────────────────────────────────────
 
     override fun showCode(record: CodeRecord) {
-        val notification = buildCodeNotification(record)
-        notificationManager.notify(ISLAND_NOTIFICATION_ID, notification)
+        AppLog.i(TAG, "showCode 被调用: code=${record.code}")
+        val protocolVersion = getFocusProtocolVersion(context)
+        Log.i(TAG, "showCode: focusProtocolVersion=$protocolVersion")
+        try {
+            val notification = buildCodeNotification(record)
+            // 验证超级岛参数是否成功注入
+            val focusParam = notification.extras.getString("miui.focus.param")
+            if (focusParam != null) {
+                AppLog.i(TAG, "✅ miui.focus.param 已注入 (${focusParam.length}字符), protocol=$protocolVersion")
+                Log.i(TAG, "miui.focus.param injected: ${focusParam.take(120)}")
+            } else {
+                AppLog.w(TAG, "⚠️ miui.focus.param 为空! protocolVersion=$protocolVersion, 将以普通通知展示")
+                Log.w(TAG, "miui.focus.param is NULL! protocol=$protocolVersion")
+            }
+            notificationManager.notify(ISLAND_NOTIFICATION_ID, notification)
+            AppLog.i(TAG, "✅ 通知已发送 notify(id=$ISLAND_NOTIFICATION_ID)")
+            Log.i(TAG, "Notification sent: id=$ISLAND_NOTIFICATION_ID")
+        } catch (e: Exception) {
+            Log.e(TAG, "showCode failed", e)
+            AppLog.e(TAG, "showCode 异常: ${e.javaClass.simpleName}: ${e.message}", throwable = e)
+        }
     }
 
     override fun showNoResult() {

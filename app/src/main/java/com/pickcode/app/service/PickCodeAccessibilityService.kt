@@ -371,8 +371,17 @@ class PickCodeAccessibilityService : AccessibilityService() {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     private fun onCodeFound(record: CodeRecord) {
-        scope.launch { repository.insert(record) }
-        islandManager.showCode(record)
-        sendBroadcast(Intent(ACTION_CODE_FOUND).setPackage(packageName))
+        AppLog.i(TAG, "🏝️ onCodeFound 被调用: code=${record.code}, type=${record.codeType}, island=${islandManager.managerName}")
+        Log.i(TAG, "onCodeFound: code=${record.code}, delegate=${islandManager.managerName}")
+        try {
+            scope.launch { repository.insert(record) }
+            AppLog.i(TAG, "→ 调用 islandManager.showCode() 展示到${islandManager.managerName}")
+            islandManager.showCode(record)
+            AppLog.i(TAG, "✅ islandManager.showCode() 执行完成（通知已发送）")
+            sendBroadcast(Intent(ACTION_CODE_FOUND).setPackage(packageName))
+        } catch (e: Exception) {
+            Log.e(TAG, "onCodeFailed 异常", e)
+            AppLog.e(TAG, "onCodeFound 展示失败: ${e.javaClass.simpleName}: ${e.message}", throwable = e)
+        }
     }
 }

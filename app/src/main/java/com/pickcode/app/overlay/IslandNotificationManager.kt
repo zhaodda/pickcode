@@ -1,6 +1,7 @@
 package com.pickcode.app.overlay
 
 import android.content.Context
+import android.util.Log
 import com.pickcode.app.data.model.CodeRecord
 
 /**
@@ -64,7 +65,9 @@ class IslandNotificationManager(context: Context) {
     }
 
     /** 实际执行通知的厂商实现类（由工厂自动选择） */
-    private val delegate: IslandManagerBase = IslandManagerFactory.create(context)
+    private val delegate: IslandManagerBase = IslandManagerFactory.create(context).also {
+        Log.i("IslandNotificationManager", "Facade initialized: delegate=${it.managerName}")
+    }
 
     /** 当前选择的实现名称（用于日志/调试） */
     val managerName: String get() = delegate.managerName
@@ -75,7 +78,10 @@ class IslandNotificationManager(context: Context) {
      * 展示识别到的验证码
      * 自动根据设备能力选择：超级岛 / 流体云 / 原子岛 / 普通通知横幅
      */
-    fun showCode(record: CodeRecord) = delegate.showCode(record)
+    fun showCode(record: CodeRecord) {
+        Log.i("IslandNotificationManager", "showCode → delegating to ${delegate.managerName}")
+        delegate.showCode(record)
+    }
 
     /** 展示"未找到验证码"提示 */
     fun showNoResult() = delegate.showNoResult()
