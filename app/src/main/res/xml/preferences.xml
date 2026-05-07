@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="@string/pref_general_title">
+
+        <SwitchPreferenceCompat
+            android:key="auto_start_on_boot"
+            android:title="@string/pref_auto_start_title"
+            android:summary="@string/pref_auto_start_summary"
+            android:defaultValue="false" />
+
+        <SwitchPreferenceCompat
+            android:key="auto_copy"
+            android:title="@string/pref_auto_copy_title"
+            android:summary="@string/pref_auto_copy_summary"
+            android:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            android:key="vibrate_on_success"
+            android:title="@string/pref_vibrate_title"
+            android:summary="@string/pref_vibrate_summary"
+            android:defaultValue="true" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_overlay_title">
+
+        <ListPreference
+            android:key="dismiss_timeout"
+            android:title="@string/pref_dismiss_timeout_title"
+            android:entries="@array/dismiss_timeout_labels"
+            android:entryValues="@array/dismiss_timeout_values"
+            android:defaultValue="15000" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/pref_about_title">
+
+        <Preference
+            android:key="version"
+            android:title="@string/pref_version_title"
+            android:summary="1.0.0" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

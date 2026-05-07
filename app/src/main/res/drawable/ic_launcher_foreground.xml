@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  应用图标前景层：深紫圆角矩形背景 + 白色扫码框 + 数字 "码"
+  自适应图标前景（108dp safe zone 居中在 72dp 内容区）
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 圆角矩形底 -->
+    <path
+        android:fillColor="#534AB7"
+        android:pathData="M18,28 Q18,18 28,18 L80,18 Q90,18 90,28 L90,80 Q90,90 80,90 L28,90 Q18,90 18,80 Z"/>
+
+    <!-- 扫码框四角 -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M34,34 L34,42 M34,34 L42,34 M74,34 L74,42 M74,34 L66,34 M34,74 L34,66 M34,74 L42,74 M74,74 L74,66 M74,74 L66,74"/>
+
+    <!-- 中心 "码" 字简化：三个色块 -->
+    <rect android:x="44" android:y="46" android:width="8" android:height="8" android:fillColor="#FFFFFF"/>
+    <rect android:x="56" android:y="46" android:width="8" android:height="8" android:fillColor="#AFA9EC"/>
+    <rect android:x="44" android:y="58" android:width="20" android:height="4" android:fillColor="#FFFFFF"/>
+</vector>

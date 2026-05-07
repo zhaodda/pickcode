@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 夜间模式覆盖色彩 -->
+<resources>
+    <color name="bg_primary">#0D0D1A</color>
+    <color name="bg_card">#1A1A2E</color>
+    <color name="bg_surface">#16213E</color>
+    <color name="text_primary">#E8E4FF</color>
+    <color name="text_secondary">#AFA9EC</color>
+    <color name="text_hint">#534AB7</color>
+    <color name="border_default">#2A2A40</color>
+</resources>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 主色系 -->
+    <color name="accent_primary">#534AB7</color>
+    <color name="accent_light">#AFA9EC</color>
+
+    <!-- 背景 -->
+    <color name="bg_primary">#FFFFFF</color>
+    <color name="bg_card">#FAFAFA</color>
+    <color name="bg_surface">#F5F4FC</color>
+
+    <!-- 文字 -->
+    <color name="text_primary">#1A1A2E</color>
+    <color name="text_secondary">#5F5E5A</color>
+    <color name="text_hint">#B4B2A9</color>
+
+    <!-- 边框 -->
+    <color name="border_default">#E8E6F0</color>
+
+    <!-- 灵动岛 -->
+    <color name="island_bg">#1A1A2E</color>
+    <color name="island_text_primary">#E8E4FF</color>
+    <color name="island_text_secondary">#7F77DD</color>
+
+    <!-- 功能色 -->
+    <color name="white">#FFFFFF</color>
+    <color name="star_active">#EF9F27</color>
+    <color name="star_inactive">#B4B2A9</color>
+    <color name="danger">#E24B4A</color>
+</resources>
