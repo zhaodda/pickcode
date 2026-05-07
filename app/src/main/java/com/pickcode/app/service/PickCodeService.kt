@@ -81,7 +81,14 @@ class PickCodeService : Service() {
         super.onCreate()
         repository = CodeRepository(this)
         islandManager = IslandNotificationManager(this)
-        startForeground(NOTIFICATION_ID, buildPersistentNotification())
+        // 安全启动前台服务：Android 14+ 对 mediaProjection 类型有限制
+        // 已移除 foregroundServiceType=mediaProjection，此处用默认类型即可
+        try {
+            startForeground(NOTIFICATION_ID, buildPersistentNotification())
+        } catch (e: SecurityException) {
+            // 极端情况：系统仍拒绝 startForeground，记录日志后继续
+            e.printStackTrace()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
