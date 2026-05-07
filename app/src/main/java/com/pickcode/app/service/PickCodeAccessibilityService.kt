@@ -60,7 +60,8 @@ class PickCodeAccessibilityService : AccessibilityService() {
          *
          * @param from 触发来源，决定是否需要先折叠通知栏面板：
          *            "auto"=内部调用(不折叠) / "notification"=通知栏按钮(折叠) /
-         *            "tile"=快速设置磁贴(折叠) / "fab"=悬浮按钮(不折叠) / "manual"=手动(不折叠)
+         *            "tile"=快速设置磁贴(已由 TileService 自行折叠,不再重复折叠) /
+         *            "fab"=悬浮按钮(不折叠) / "manual"=手动(不折叠)
          * @return CodeRecord? 识别到的取件码记录，null 表示未识别到或服务不可用
          */
         fun extractFromScreenText(from: String = "auto"): CodeRecord? {
@@ -69,6 +70,22 @@ class PickCodeAccessibilityService : AccessibilityService() {
                 return null
             }
             return svc.doExtractFromScreenText(from)
+        }
+
+        /**
+         * 折叠通知栏/QS 面板（公开方法，供外部调用）
+         *
+         * 使用 performGlobalAction(GLOBAL_ACTION_BACK) 模拟返回键来关闭面板。
+         * TileService 优先使用 startActivityAndCollapse()，此方法作为降级方案。
+         */
+        fun collapsePanelIfNeeded() {
+            val svc = instance ?: return
+            try {
+                val result = svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+                Log.d(TAG, "collapsePanelIfNeeded: GLOBAL_ACTION_BACK result=$result")
+            } catch (e: Exception) {
+                Log.w(TAG, "collapsePanelIfNeeded failed", e)
+            }
         }
 
         /**
@@ -173,21 +190,19 @@ class PickCodeAccessibilityService : AccessibilityService() {
         }
         lastExtractTime = now
 
-        // 通知栏和磁贴触发时：先折叠通知栏/快速设置面板，等面板收起后再读取屏幕内容
+        // 通知栏触发时：先模拟返回键关闭面板，等面板收起后再读取屏幕内容
         // 否则 rootInActiveWindow 读到的是通知栏自身的 UI（按钮文字等），不是后面屏幕上的 App
         //
-        // ⚠️ 关键决策：使用 performGlobalAction(GLOBAL_ACTION_BACK) 而非反射 collapsePanels()
-        // 原因：collapsePanels() 在 Android 8.0+ 对第三方 App 基本无效（系统限制反射调用），
-        //      而 GLOBAL_ACTION_BACK 是 AccessibilityService 官方 API，模拟按返回键，
-        //      能可靠地关闭通知栏和快速设置面板，所有 Android 版本均有效。
-        if (from == "notification" || from == "tile") {
-            AppLog.i(TAG, "[$from] 模拟返回键关闭面板，800ms后提取屏幕文字", from)
-            // 先尝试 GLOBAL_ACTION_BACK（关闭通知栏/QS面板）
+        // ⚠️ Tile ("tile") 不在此分支处理：
+        // TileService.onClick() 已通过 startActivityAndCollapse() 自行收起 QS 面板，
+        // 并延迟 ~1000ms 后才调用 extractFromScreenText("tile")，此时 QS 面板已完全收起。
+        // 如果在这里再执行 GLOBAL_ACTION_BACK 反而会多按一次返回键，可能意外退出当前 App。
+        if (from == "notification") {
+            AppLog.i(TAG, "[$from] 模拟返回键关闭通知栏面板，800ms后提取屏幕文字", from)
             val collapsed = performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
             Log.d(TAG, "GLOBAL_ACTION_BACK result=$collapsed")
-            // 延迟等待面板动画完成 + 系统刷新节点树
             handler.postDelayed({ performExtract(from) }, 800)
-            return null  // 异步返回，结果由 performExtract 处理
+            return null
         }
 
         // FAB/手动触发：直接提取（通知栏未展开，屏幕内容可见）
