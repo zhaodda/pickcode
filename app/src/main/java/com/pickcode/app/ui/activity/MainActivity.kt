@@ -1,12 +1,14 @@
 package com.pickcode.app.ui.activity
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.service.quicksettings.TileService
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
@@ -20,6 +22,7 @@ import com.pickcode.app.R
 import com.pickcode.app.databinding.ActivityMainBinding
 import com.pickcode.app.overlay.IslandNotificationManager
 import com.pickcode.app.service.PickCodeService
+import com.pickcode.app.tile.PickCodeTileService
 import com.pickcode.app.ui.adapter.CodeRecordAdapter
 import com.pickcode.app.ui.viewmodel.MainViewModel
 import kotlinx.coroutines.launch
@@ -34,9 +37,9 @@ class MainActivity : AppCompatActivity() {
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                // 权限通过 → 启动常驻服务 + 显示引导
+                // 权限通过 → 启动常驻服务
                 startPickCodeService()
-                showIslandSupportHint()
+                // 先显示 Tile 引导（AlertDialog），确认后再显示超级岛提示
                 showTileGuideIfNeeded()
             } else {
                 Snackbar.make(
@@ -60,6 +63,9 @@ class MainActivity : AppCompatActivity() {
         setupRecyclerView()
         setupFab()
         observeRecords()
+
+        // 请求 Tile 进入 listening 状态（确保 Tile 出现在 QS 编辑面板中）
+        requestTileListeningState()
 
         // 先申请权限，权限通过后再启动服务和显示引导
         checkAndRequestPermissionsAndStartService()
@@ -125,9 +131,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 权限已满足 → 启动服务 + 显示引导
+        // 权限已满足 → 启动服务 + 显示引导（先 Tile 引导，确认后超级岛提示）
         startPickCodeService()
-        showIslandSupportHint()
         showTileGuideIfNeeded()
     }
 
@@ -188,48 +193,62 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * 请求 Tile 进入 listening 状态
+     *
+     * 调用 TileService.requestListeningState() 后：
+     * 1. 系统会绑定 PickCodeTileService
+     * 2. 触发 onStartListening() 更新 tile 状态（label/subtitle）
+     * 3. 确保 Tile 出现在 Quick Settings 编辑面板中
+     *
+     * 必须在 API 25+ (Android N) 才能使用
+     */
+    private fun requestTileListeningState() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            try {
+                TileService.requestListeningState(
+                    this,
+                    ComponentName(this, PickCodeTileService::class.java)
+                )
+            } catch (_: Exception) {
+                // 某些 ROM 可能不支持，忽略
+            }
+        }
+    }
+
+    /**
      * 首次使用引导：教用户添加 Quick Settings Tile（快捷开关）
      *
      * 引导条件（仅首次）：
      * - SharedPreferences 中未记录 "tile_guide_shown"
      *
-     * 引导方式：Snackbar + 跳转 Quick Settings 编辑页面
+     * 使用 AlertDialog 而非 Snackbar（Snackbar 会自动消失，用户容易错过）
      */
     private fun showTileGuideIfNeeded() {
         val prefs = getSharedPreferences("pickcode_prefs", MODE_PRIVATE)
         if (prefs.getBoolean("tile_guide_shown", false)) return
 
-        // 延迟 1.5 秒显示，避免和超级岛提示 Snackbar 冲突
+        // 延迟 500ms 显示（等权限弹窗关闭后）
         binding.root.postDelayed({
-            Snackbar.make(
-                binding.root,
-                "💡 下拉通知栏 → 点「编辑」→ 找到「码速达」并添加，即可在任意屏幕一键识别",
-                Snackbar.LENGTH_LONG
-            ).setAction("去编辑") {
-                try {
-                    // 尝试直接打开 QS 编辑页面（部分 ROM 支持）
-                    startActivity(Intent("android.quicksettings.action.QS_EDIT").apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    })
-                } catch (_: Exception) {
-                    // 降级提示：告诉用户手动操作
-                    AlertDialog.Builder(this@MainActivity)
-                        .setTitle("添加快捷开关")
-                        .setMessage(
-                            "1. 从屏幕顶部向下滑出通知栏\n" +
-                            "2. 点击右下角「编辑」按钮（铅笔图标 ⚡）\n" +
-                            "3. 找到「码速达」图标\n" +
-                            "4. 按住拖动到上方快捷区域即可\n\n" +
-                            "添加后即可在任意界面下拉通知栏快速触发识别！"
-                        )
-                        .setPositiveButton("知道了", null)
-                        .show()
+            AlertDialog.Builder(this)
+                .setTitle("🚀 添加快捷开关")
+                .setMessage(
+                    "添加「码速达」快捷开关后，可在任意界面一键识别验证码！\n\n" +
+                    "操作步骤：\n" +
+                    "1. 从屏幕顶部向下滑出「通知栏」\n" +
+                    "2. 点击右下角「编辑」按钮（⚡ 铅笔图标）\n" +
+                    "3. 找到「码速达」图标\n" +
+                    "4. 按住拖动到上方快捷区域\n\n" +
+                    "💡 添加成功后，下拉通知栏点击「码速达」即可立即识别！"
+                )
+                .setPositiveButton("我知道了") { _, _ ->
+                    // 标记已显示过引导
+                    prefs.edit().putBoolean("tile_guide_shown", true).apply()
+                    // 引导关闭后再显示超级岛提示（避免同时弹出多个对话框）
+                    showIslandSupportHint()
                 }
-            }.show()
-
-            // 标记已显示过引导
-            prefs.edit().putBoolean("tile_guide_shown", true).apply()
-        }, 1500)
+                .setCancelable(false)  // 必须确认，不可忽略
+                .show()
+        }, 500)
     }
 
     /**
