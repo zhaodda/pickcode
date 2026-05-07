@@ -52,8 +52,10 @@ class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
         private const val KEY_FOCUS_PARAM   = "miui.focus.param"
         private const val KEY_FOCUS_PICS    = "miui.focus.pics"
         private const val KEY_FOCUS_ACTIONS = "miui.focus.actions"
-        private const val KEY_PIC_ICON      = "miui.focus.pic_icon"
-        private const val KEY_PIC_TICKER    = "miui.focus.pic_ticker"
+        // 图片资源 key（命名遵循官方文档示例）
+        private const val KEY_PIC_IMAGETEXT = "miui.focus.pic_imageText"  // 大岛/小岛主图（左图右文中的图片）
+        private const val KEY_PIC_TICKER    = "miui.focus.pic_ticker"     // 状态栏/锁屏图标
+        private const val KEY_PIC_AOD       = "miui.focus.pic_aod"        // 息屏显示图标
         private const val KEY_ACTION_COPY   = "miui.focus.action_copy"
 
         /**
@@ -215,10 +217,13 @@ class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
 
     @RequiresApi(Build.VERSION_CODES.M)
     private fun buildExtraBundle(copyIntent: PendingIntent): Bundle {
+        // 注册所有图片资源（key 必须与 JSON 中的引用一致）
         val pics = Bundle().apply {
-            putParcelable(KEY_PIC_ICON,   Icon.createWithResource(context, R.drawable.ic_notification))
-            putParcelable(KEY_PIC_TICKER, Icon.createWithResource(context, R.drawable.ic_notification))
+            putParcelable(KEY_PIC_IMAGETEXT, Icon.createWithResource(context, R.drawable.ic_notification))
+            putParcelable(KEY_PIC_TICKER,    Icon.createWithResource(context, R.drawable.ic_notification))
+            putParcelable(KEY_PIC_AOD,       Icon.createWithResource(context, R.drawable.ic_notification))
         }
+        // 注册操作按钮
         val actions = Bundle().apply {
             putParcelable(KEY_ACTION_COPY,
                 Notification.Action.Builder(
@@ -243,45 +248,50 @@ class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
 
     /** 完整超级岛 JSON（澎湃OS3 专用，含 bigIslandArea / smallIslandArea / shareData）
      *
-     * 参考官方文档：https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2131
-     * 关键字段说明：
-     * - timeout: 通知存活时间（分钟），默认720（12小时）
-     * - islandTimeout: 岛显示超时（秒），默认3600（60分钟）
-     * - reopen: "close"=不再展示 / "reopen"=取消后可重新发送展示
-     * - islandFirstFloat: true=首次展开态 / false=摘要态
+     * 严格遵循官方文档格式：
+     * https://dev.mi.com/xiaomihyperos/documentation/detail?pId=2131
+     *
+     * 关键修复点（v1.4.0）：
+     * - ✅ 添加 "protocol": 1（必填字段，缺失会导致超级岛不识别）
+     * - ✅ 使用标准图片 key：pic_imageText / pic_ticker / pic_aod
+     * - ✅ aodPic 正确引用 pic_aod key
+     * - ✅ timeout 调整为 120 分钟（合理范围）
      */
     private fun buildSuperIslandJson(record: CodeRecord, typeLabel: String): String {
         val color = getHighlightColor(record.codeType)
         return JSONObject().apply {
             put("param_v2", JSONObject().apply {
+                // === 必填字段 ===
+                put("protocol", 1)                 // ⚠️ 协议版本，缺失则超级岛不生效！
+
                 // === 顶层配置 ===
-                put("business", "express")          // 业务场景：快递/物流
+                put("business", "delivery")         // 业务场景：快递/物流（官方预定义值）
                 put("islandFirstFloat", true)       // 首次展示为展开态
-                put("enableFloat", true)             // 更新时也展开（方便用户看到变化）
-                put("updatable", false)              // 不需要后台更新
-                put("filterWhenNoPermission", false) // 无权限也不过滤（降级为普通通知）
-                put("reopen", "reopen")              // 允许重新展示
-                put("timeout", 30)                   // 30分钟后自动消失（分钟）
+                put("enableFloat", true)            // 更新时也展开
+                put("updatable", false)             // 非持续性通知
+                put("filterWhenNoPermission", false) // 无权限降级为普通通知
+                put("reopen", "reopen")             // 取消后可重新发送展示
+                put("timeout", 120)                 // 120分钟后自动消失（分钟）
 
                 // === 状态栏/息屏文案 ===
                 put("ticker", "${typeLabel}：${record.code}")
-                put("tickerPic", KEY_PIC_TICKER)
+                put("tickerPic", KEY_PIC_TICKER)    // → miui.focus.pic_ticker
                 put("aodTitle", "取件码 ${record.code}")
-                put("aodPic", KEY_PIC_ICON)
+                put("aodPic", KEY_PIC_AOD)          // → miui.focus.pic_aod
 
                 // === 超级岛核心配置 ===
                 put("param_island", JSONObject().apply {
                     put("islandProperty", 1)         // 1=信息展示为主
-                    put("islandTimeout", 60)         // 岛展示60秒后自动收缩（秒）
+                    put("islandTimeout", 90)         // 岛展示90秒后自动收缩（秒）
                     put("highlightColor", color)
-                    put("islandOrder", false)        // 摘要态时不更新排序
+                    put("islandOrder", false)
 
-                    // 大岛（展开态）：左图右文
+                    // 大岛（展开态）：左图右文布局
                     put("bigIslandArea", JSONObject().apply {
                         put("imageTextInfoLeft", JSONObject().apply {
                             put("type", 1)
                             put("picInfo", JSONObject().apply {
-                                put("type", 1); put("pic", KEY_PIC_ICON)
+                                put("type", 1); put("pic", KEY_PIC_IMAGETEXT)
                             })
                             put("textInfo", JSONObject().apply {
                                 put("frontTitle", typeLabel)
@@ -291,14 +301,14 @@ class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
                             })
                         })
                         put("picInfo", JSONObject().apply {
-                            put("type", 1); put("pic", KEY_PIC_ICON)
+                            put("type", 1); put("pic", KEY_PIC_IMAGETEXT)
                         })
                     })
 
                     // 小岛（摘要态/胶囊态）
                     put("smallIslandArea", JSONObject().apply {
                         put("picInfo", JSONObject().apply {
-                            put("type", 1); put("pic", KEY_PIC_ICON)
+                            put("type", 1); put("pic", KEY_PIC_IMAGETEXT)
                         })
                     })
 
@@ -307,11 +317,11 @@ class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
                         put("title", typeLabel)
                         put("content", record.code)
                         put("shareContent", record.code)
-                        put("pic", KEY_PIC_ICON)
+                        put("pic", KEY_PIC_IMAGETEXT)
                     })
                 })
 
-                // === 降级时的焦点通知数据（非超级岛设备或权限不足时使用）===
+                // === 降级时的焦点通知数据 ===
                 put("baseInfo", JSONObject().apply {
                     put("title", typeLabel)
                     put("content", "取件码：${record.code}")
@@ -333,9 +343,11 @@ class MiuiIslandManager(context: Context) : IslandManagerBase(context) {
     private fun buildFocusOnlyJson(record: CodeRecord, typeLabel: String): String {
         return JSONObject().apply {
             put("param_v2", JSONObject().apply {
+                put("protocol", 1)
                 put("ticker", "${typeLabel}：${record.code}")
                 put("tickerPic", KEY_PIC_TICKER)
                 put("aodTitle", "取件码 ${record.code}")
+                put("aodPic", KEY_PIC_AOD)
             })
         }.toString()
     }
