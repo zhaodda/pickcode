@@ -99,10 +99,11 @@ class MainActivity : AppCompatActivity() {
         requestTileListeningState()
 
         // 注册广播接收器（监听 Service 的权限请求）
+        @Suppress("DEPRECATION")
         registerReceiver(
             permissionReceiver,
             IntentFilter(PickCodeService.ACTION_NEED_PERMISSION),
-            RECEIVER_NOT_EXPORTED
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) RECEIVER_NOT_EXPORTED else 0
         )
 
         // 检查是否从通知栏点击进入（需要触发识别）

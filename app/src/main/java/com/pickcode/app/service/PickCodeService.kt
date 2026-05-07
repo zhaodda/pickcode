@@ -65,6 +65,9 @@ class PickCodeService : Service() {
         const val EXTRA_MANUAL_RAW     = "manual_raw"
         const val NOTIFICATION_ID      = 1001
 
+        /** Service 需要截屏权限时发出的广播，MainActivity/Tile 监听此广播来拉起授权页 */
+        const val ACTION_NEED_PERMISSION = "com.pickcode.NEED_PERMISSION"
+
         /**
          * 触发截屏识别（从 Activity / Tile / 通知调用）
          *
@@ -187,11 +190,6 @@ class PickCodeService : Service() {
             val broadcastIntent = Intent(ACTION_NEED_PERMISSION).setPackage(packageName)
             sendBroadcast(broadcastIntent)
         }
-    }
-
-    companion object {
-        /** Service 需要截屏权限时发出的广播，MainActivity/Tile 监听此广播来拉起授权页 */
-        const val ACTION_NEED_PERMISSION = "com.pickcode.NEED_PERMISSION"
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
