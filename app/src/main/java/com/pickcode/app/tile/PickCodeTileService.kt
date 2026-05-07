@@ -2,6 +2,8 @@ package com.pickcode.app.tile
 
 import android.content.Intent
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import com.pickcode.app.service.PickCodeService
@@ -11,6 +13,8 @@ import com.pickcode.app.service.PickCodeService
  * 用户可在下拉通知面板添加并点击，一键触发截屏识别
  */
 class PickCodeTileService : TileService() {
+
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onStartListening() {
         super.onStartListening()
@@ -42,13 +46,19 @@ class PickCodeTileService : TileService() {
                 }
             )
         } else {
-            @Suppress("DEPRECATION")
-            collapseStatusBar()
+            // API < 34: 折叠状态栏（通过 StatusBarManager 反射）
+            try {
+                val statusBarManager = getSystemService("statusbar")
+                val collapseMethod = statusBarManager?.javaClass?.getMethod("collapsePanels")
+                collapseMethod?.invoke(statusBarManager)
+            } catch (_: Exception) {
+                // 忽略，尽力而为
+            }
             PickCodeService.triggerCapture(this)
         }
 
         // 1.5 秒后恢复图标状态
-        qsTile?.postDelayed({
+        handler.postDelayed({
             qsTile?.apply {
                 state = Tile.STATE_INACTIVE
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) subtitle = "点击识别验证码"
