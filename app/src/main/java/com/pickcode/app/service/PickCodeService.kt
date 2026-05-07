@@ -13,7 +13,9 @@ import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
 import android.util.DisplayMetrics
+import android.util.Log
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.pickcode.app.PickCodeApp
@@ -30,26 +32,23 @@ import kotlinx.coroutines.*
  * PickCode 核心前台服务
  *
  * 职责：
- * - 常驻前台通知（低优先级，始终存在）
- * - 通过 AccessibilityService (v1.0.5+) 或 MediaProjection 执行屏幕截图
+ * - 常驻前台通知（低优先级，始终存在）— 这是所有截屏入口的中转站
+ * - 通过 AccessibilityService (v1.1.0+) 或 MediaProjection 执行屏幕截图
  * - 调用 ML Kit OCR 识别取件码
  * - 通过 IslandNotificationManager 展示灵动岛通知（自动适配厂商）
- * - 处理手动输入的取件码并展示到灵动岛
  *
- * ══ v1.0.5 截屏方案变更 ═══
- * **主方案**: PickCodeAccessibilityService.takeScreenshot() — 无需录屏弹窗，稳定可靠
- * **降级方案**: MediaProjection（仅当无障碍服务不可用时）
+ * ══ v1.1.0 架构变更 ═══
+ * 所有截屏入口统一通过 PickCodeService 中转：
+ * 通知栏/Tile/FAB -> PickCodeService (ACTION_TRIGGER) -> AccessibilityService 或 MediaProjection
  *
- * ══ 多厂商灵动岛展示策略 ═══
- * IslandNotificationManager 内部由 IslandManagerFactory 自动选择最优实现：
- * - 小米澎湃OS3+ → 原生超级岛
- * - OPPO ColorOS 16+ → 流体云
- * - vivo OriginOS 3.0+ → 原子岛（需白名单）
- * - 其他设备 → 标准高优先级通知横幅
+ * 原因：AccessibilityService 不保证常驻运行（系统可能延迟绑定或回收），
+ * 但 PickCodeService 是前台服务，始终存活，作为可靠的中转枢纽。
  */
 class PickCodeService : Service() {
 
     companion object {
+        private const val TAG = "PickCodeSvc"
+
         const val ACTION_TRIGGER       = "com.pickcode.TRIGGER"
         const val ACTION_STOP          = "com.pickcode.STOP"
         const val ACTION_MEDIA_RESULT  = "com.pickcode.MEDIA_RESULT"
@@ -62,19 +61,11 @@ class PickCodeService : Service() {
         const val NOTIFICATION_ID      = 1001
 
         /**
-         * 触发截屏识别（统一入口）
+         * 触发截屏识别（统一入口 — 从任意地方调用）
          *
-         * v1.0.5 策略：
-         * 1. 优先尝试 PickCodeAccessibilityService.triggerScreenshot()（无障碍截屏）
-         * 2. 如果无障碍服务不可用 → 发送 ACTION_TRIGGER 给 Service 走 MediaProjection 降级
+         * 流程：启动 PickCodeService(ACTION_TRIGGER) -> 服务内部判断走哪条路径
          */
         fun triggerCapture(context: Context) {
-            // 优先走无障碍服务（无需录屏弹窗）
-            if (PickCodeAccessibilityService.isAvailable) {
-                if (PickCodeAccessibilityService.triggerScreenshot()) return
-            }
-
-            // 降级：尝试通过 Service 的 MediaProjection 路径
             val intent = Intent(context, PickCodeService::class.java).apply {
                 action = ACTION_TRIGGER
             }
@@ -85,7 +76,7 @@ class PickCodeService : Service() {
                     context.startService(intent)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e(TAG, "Failed to start capture service", e)
             }
         }
 
@@ -146,6 +137,8 @@ class PickCodeService : Service() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+
+        Log.i(TAG, "PickCodeService created and running as foreground")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -165,20 +158,44 @@ class PickCodeService : Service() {
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  触发入口（MediaProjection 降级路径）
+    //  触发入口（所有截屏的统一中转点）
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     /**
-     * 处理截屏触发请求（MediaProjection 降级路径）
-     * 仅当 AccessibilityService 不可用时才会走到这里
+     * 处理截屏触发请求
+     *
+     * 策略：
+     * 1. 先尝试直接调 AccessibilityService.triggerScreenshot()（如果已连接）
+     * 2. 如果没连接，发广播尝试唤醒它
+     * 3. 最终兜底：Toast 提示用户开启无障碍服务
      */
     private fun handleTrigger() {
-        // 再试一次无障碍服务（可能刚连上）
-        if (PickCodeAccessibilityService.isAvailable && PickCodeAccessibilityService.triggerScreenshot()) return
+        Log.d(TAG, "handleTrigger() called")
 
-        // 最终降级：发送广播让调用方拉起 PermissionActivity（MediaProjection 方案）
-        val broadcastIntent = Intent(PickCodeAccessibilityService.ACTION_NEED_PERMISSION).setPackage(packageName)
-        sendBroadcast(broadcastIntent)
+        showToast("正在截图识别...")
+
+        // 方案1：直接调用无障碍服务
+        if (PickCodeAccessibilityService.isAvailable) {
+            Log.d(TAG, "AccessibilityService is available, triggering directly")
+            if (PickCodeAccessibilityService.triggerScreenshot()) {
+                return
+            }
+        }
+
+        // 方案2：发送广播唤醒无障碍服务
+        Log.d(TAG, "AccessibilityService not available yet, sending wake-up broadcast")
+        sendBroadcast(Intent(PickCodeAccessibilityService.ACTION_TRIGGER_SCREENSHOT).setPackage(packageName))
+
+        // 方案2补充：给一点时间让广播到达后再检查一次
+        scope.launch {
+            delay(800)
+            if (PickCodeAccessibilityService.isAvailable && PickCodeAccessibilityService.triggerScreenshot()) {
+                return@launch
+            }
+            // 方案3：都没成功，提示用户
+            Log.w(TAG, "All screenshot methods failed. A11y available=${PickCodeAccessibilityService.isAvailable}")
+            showToast("请确保「无障碍服务」已开启（设置→辅助功能→码速达）")
+        }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -284,8 +301,8 @@ class PickCodeService : Service() {
     /**
      * 构建常驻前台通知
      *
-     * v1.0.5: "立即识别"按钮改为发广播触发 AccessibilityService 截屏
-     * 不再需要 PermissionActivity 和 MediaProjection 录屏弹窗
+     * v1.1.0: "立即识别"按钮改回 PendingIntent.getService -> PickCodeService
+     * PickCodeService 是前台常驻服务，一定能收到并处理。
      */
     private fun buildPersistentNotification(): Notification {
         // 点击通知主体 -> 打开 MainActivity
@@ -297,10 +314,10 @@ class PickCodeService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // "立即识别" 按钮 -> 广播触发 AccessibilityService 截屏
-        val triggerIntent = PendingIntent.getBroadcast(
+        // "立即识别" 按钮 -> 启动 PickCodeService 处理（常驻服务，必定在线）
+        val triggerIntent = PendingIntent.getService(
             this, 1,
-            Intent(PickCodeAccessibilityService.ACTION_TRIGGER_SCREENSHOT).setPackage(packageName),
+            Intent(this, PickCodeService::class.java).apply { action = ACTION_TRIGGER },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -321,6 +338,11 @@ class PickCodeService : Service() {
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
+    }
+
+    /** 在主线程显示 Toast */
+    private fun showToast(msg: String) {
+        Toast.makeText(applicationContext, msg, Toast.LENGTH_SHORT).show()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
