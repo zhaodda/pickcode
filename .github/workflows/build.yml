@@ -5,7 +5,6 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  # 允许手动触发
   workflow_dispatch:
 
 jobs:
@@ -26,11 +25,19 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 3. 给 gradlew 加执行权限
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
+      # 3. 用 Gradle 官方 wrapper 脚本生成正确的 gradlew + jar
+      #    （避免本地预置的 jar 文件损坏或不兼容）
+      - name: Generate Gradle Wrapper
+        run: |
+          curl -sL https://services.gradle.org/distributions/gradle-8.2-bin.zip -o /tmp/gradle-8.2.zip
+          unzip -q /tmp/gradle-8.2.zip -d /tmp/
+          # 使用完整版 Gradle 的 wrapper 命令重新生成
+          /tmp/gradle-8.2/bin/gradle wrapper --gradle-version 8.2 --distribution-type bin
+          chmod +x ./gradlew
+          echo "Gradle wrapper generated:"
+          ls -la gradlew gradle/wrapper/
 
-      # 4. 缓存 Gradle 依赖（加速后续构建）
+      # 4. 缓存 Gradle 依赖
       - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
@@ -45,7 +52,7 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
 
-      # 6. 上传 APK 为 Artifact（可下载，保留 7 天）
+      # 6. 上传 Artifact（保留 7 天）
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
