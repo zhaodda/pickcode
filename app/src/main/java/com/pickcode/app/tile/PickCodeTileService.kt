@@ -57,24 +57,36 @@ class PickCodeTileService : TileService() {
             updateTile()
         }
 
-        // 2. 收起 QS 面板 — 这是 TileService 官方 API
-        //    startActivityAndCollapse 会自动关闭 QS 面板并启动指定 Activity
-        //    我们传一个空的 Intent（不启动任何 Activity），纯粹利用它的"收起面板"副作用
-        //    这比 performGlobalAction(GLOBAL_ACTION_BACK) 更可靠，因为：
-        //    a) 它是 TileService 原生能力，不受 ROM 定制干扰
-        //    b) 不触发额外的 BACK 事件（不会意外退出当前 App）
+        // 2. 收起 QS 面板 — TileService 官方 API
+        //    startActivityAndCollapse 专门用于关闭 QS 面板（右边下拉的快速设置）
         try {
             startActivityAndCollapse(android.content.Intent())
             Log.d(TAG, "QS panel collapsed via startActivityAndCollapse")
         } catch (e: Exception) {
-            Log.w(TAG, "startActivityAndCollapse failed, fallback to global action", e)
-            // 降级：通过 AccessibilityService 执行返回键
-            PickCodeAccessibilityService.collapsePanelIfNeeded()
+            Log.w(TAG, "startActivityAndCollapse failed", e)
         }
 
-        // 3. 延迟执行文字提取（等 QS 面板完全收起 + 节点树刷新）
-        //    注意：必须在 handler 中延迟执行，不能同步调 extractFromScreenText()
-        //    因为 onClick() 必须快速返回（Binder 线程限制），且此时 QS 面板还未收起
+        // 3. 延迟执行文字提取
+        //    澎湃OS 特殊性：状态栏左边=通知栏，右边=QS 面板，两者是独立的！
+        //    startActivityAndCollapse 只关 QS（右边），通知栏（左边）可能还开着。
+        //    所以在延迟回调中还需要再确认所有面板都已关闭。
+        //
+        //    时间线：
+        //    T=0ms   onClick() 执行，startActivityAndCollapse 开始关闭 QS
+        //    T~300ms QS 面板动画收起完成
+        //    T=500ms  第一次 GLOBAL_ACTION_BACK（兜底关闭可能残留的通知栏）
+        //    T=1000ms 第二次检查 + 提取屏幕文字
+        //
+        //    分两步延迟是为了：
+        //    a) 给 QS 面板动画足够时间完成
+        //    b) 再用一次 BACK 确保通知栏也被关闭
+        //    c) 最后等节点树刷新后再提取
+        handler.postDelayed({
+            // 兜底：再按一次返回键，确保通知栏也关掉了
+            AppLog.i("PickCodeTileService", "延迟500ms后执行兜底返回键(确保通知栏也关闭)", "tile")
+            PickCodeAccessibilityService.collapsePanelIfNeeded()
+        }, 500)
+
         handler.postDelayed({
             AppLog.i("PickCodeTileService", "延迟${PANEL_COLLAPSE_DELAY_MS}ms后开始提取屏幕文字", "tile")
             PickCodeAccessibilityService.extractFromScreenText("tile")

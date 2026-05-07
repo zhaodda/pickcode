@@ -230,9 +230,16 @@ class PickCodeAccessibilityService : AccessibilityService() {
 
     /**
      * 实际执行节点树遍历 + 正则匹配
+     *
+     * 包含面板残留检测：如果提取到的文字看起来像是通知栏/QS 面板的内容
+     * （包含"码速达"、"立即识别"、"设置"、"蓝牙"、"WiFi"等特征关键词），
+     * 说明面板还没完全收起，自动再执行一次 GLOBAL_ACTION_BACK 并延迟重试。
      */
-    private fun performExtract(from: String): CodeRecord? {
-        AppLog.i(TAG, "开始从屏幕提取文字 [from=$from]", from)
+    private fun performExtract(from: String, retryCount: Int = 0): CodeRecord? {
+        AppLog.i(TAG, "开始从屏幕提取文字 [from=$from, retry=$retryCount]", from)
+
+        // 最大重试次数（防止无限循环）
+        val MAX_RETRIES = 2
 
         try {
             val root = rootInActiveWindow
@@ -249,6 +256,18 @@ class PickCodeAccessibilityService : AccessibilityService() {
                 Log.w(TAG, "Screen text is empty — 当前屏幕可能无可见文字内容或节点树为空")
                 AppLog.w(TAG, "屏幕文字为空（节点树遍历结果为空字符串）", from)
                 handler.post { islandManager.showNoResult() }
+                return null
+            }
+
+            // ══ 面板残留检测 ══
+            // 如果提取到的文字包含通知栏/QS 面板的特征文字，说明面板还未完全收起。
+            // 此时应该再按一次返回键，等一会儿重新提取。
+            if (retryCount < MAX_RETRIES && looksLikePanelText(fullText)) {
+                AppLog.w(TAG, "⚠️ 检测到面板残留文字(重试${retryCount + 1}/${MAX_RETRIES}): ${fullText.take(100)}", from)
+                // 再按一次返回键关闭残留面板
+                performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+                // 递归重试，延迟更长一点
+                handler.postDelayed({ performExtract(from, retryCount + 1) }, 800)
                 return null
             }
 
@@ -276,6 +295,37 @@ class PickCodeAccessibilityService : AccessibilityService() {
             handler.post { islandManager.showError() }
             return null
         }
+    }
+
+    /**
+     * 检测提取到的文字是否像是通知栏/QS 面板的内容（而非正常 App 屏幕文字）
+     *
+     * 原理：通知栏和 QS 面板的 UI 节点树包含一些特征关键词，
+     * 正常 App 的屏幕上不会同时出现这些词。
+     * 只要匹配到任意一个就认为"看起来像面板"。
+     */
+    private fun looksLikePanelText(text: String): Boolean {
+        val panelKeywords = arrayOf(
+            "码速达",          // 通知栏标题
+            "已就绪",          // 通知栏内容
+            "立即识别",        // 通知栏按钮
+            "停止服务",        // 通知栏按钮
+            // QS 面板常见系统文字（中文 ROM）
+            "蓝牙",
+            "移动数据",
+            "飞行模式",
+            "静音",
+            "手电筒",
+            "自动旋转",
+            "亮度",
+            // 通知栏底部/设置区域
+            "编辑",
+            "设置",
+            "省电与电池",
+            // 小米/澎湃OS 特有
+            "控制中心",
+        )
+        return panelKeywords.any { it in text }
     }
 
     /**
