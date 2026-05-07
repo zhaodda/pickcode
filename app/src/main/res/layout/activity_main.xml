@@ -87,11 +87,10 @@
             android:layout_marginEnd="12dp"
             android:minWidth="48dp"
             android:paddingHorizontal="14dp"
-            android:text="\uD83D\uDCDD 手动输入"
+            android:text="✏️ 手动输入"
             android:textColor="@color/accent_primary"
             android:textSize="13sp"
             app:cornerRadius="24dp"
-            app:icon="\u270F\uFE0F"
             app:iconTint="@color/accent_primary"
             app:strokeColor="@color/accent_primary"
             app:strokeWidth="1dp" />
