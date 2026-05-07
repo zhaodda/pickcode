@@ -306,24 +306,20 @@ class PickCodeAccessibilityService : AccessibilityService() {
      */
     private fun looksLikePanelText(text: String): Boolean {
         val panelKeywords = arrayOf(
+            // === 码速达自身通知栏文字（最精确的标识）===
             "码速达",          // 通知栏标题
             "已就绪",          // 通知栏内容
             "立即识别",        // 通知栏按钮
             "停止服务",        // 通知栏按钮
-            // QS 面板常见系统文字（中文 ROM）
-            "蓝牙",
-            "移动数据",
-            "飞行模式",
-            "静音",
-            "手电筒",
-            "自动旋转",
-            "亮度",
-            // 通知栏底部/设置区域
-            "编辑",
-            "设置",
-            "省电与电池",
-            // 小米/澎湃OS 特有
+            // === QS 面板独有系统文字（正常App不会出现的）===
+            "蓝牙",           // QS磁贴名称
+            "移动数据",       // QS磁贴名称（"数据"单独太短不收录）
+            "飞行模式",       // QS磁贴名称
+            "手电筒",         //QS磁贴名称
+            "自动旋转",       // QS磁贴名称
+            // === 小米/澎湃OS 控制中心特有 ===
             "控制中心",
+            "省电与电池",
         )
         return panelKeywords.any { it in text }
     }
