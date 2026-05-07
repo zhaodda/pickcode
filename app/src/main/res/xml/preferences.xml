@@ -39,8 +39,7 @@
 
         <Preference
             android:key="version"
-            android:title="@string/pref_version_title"
-            android:summary="1.0.0" />
+            android:title="@string/pref_version_title" />
 
     </PreferenceCategory>
 
