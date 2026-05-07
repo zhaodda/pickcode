@@ -47,22 +47,29 @@ class PickCodeService : Service() {
         /**
          * 触发识别：通过无障碍节点树文字提取屏幕内容
          * 唯一方案，无降级。如果无障碍服务不可用则提示用户开启。
+         *
+         * @param from 触发来源，notification/tile 会先关闭面板再提取
          */
-        fun triggerCapture(context: Context) {
-            AppLog.i("PickCodeService", "triggerCapture 被调用", "notification")
+        fun triggerCapture(context: Context, from: String = "auto") {
+            AppLog.i("PickCodeService", "triggerCapture 被调用 [from=$from]", from)
 
-            // 直接调用无障碍服务提取屏幕文字
-            val result = PickCodeAccessibilityService.extractFromScreenText()
+            // 直接调用无障碍服务提取屏幕文字（传入来源以决定是否折叠面板）
+            val result = PickCodeAccessibilityService.extractFromScreenText(from)
             if (result != null) {
-                AppLog.i("PickCodeService", "✅ 识别成功: ${result.code}", "notification")
+                AppLog.i("PickCodeService", "✅ 识别成功: ${result.code}", from)
                 return
             }
 
             // 无障碍服务不可用或未识别到 → 提示用户
             if (!PickCodeAccessibilityService.isAvailable) {
-                AppLog.w("PickCodeService", "⚠️ 无障碍服务未连接，请确认已开启「码速达」无障碍服务", "notification")
+                AppLog.w("PickCodeService", "⚠️ 无障碍服务未连接，请确认已开启「码速达」无障碍服务", from)
             } else {
-                AppLog.w("PickCodeService", "❌ 屏幕文字中未找到取件码", "notification")
+                // notification/tile 触发时返回 null 是正常的（异步执行中）
+                if (from == "notification" || from == "tile") {
+                    AppLog.i("PickCodeService", "⏳ 异步提取中（面板关闭后自动执行）", from)
+                } else {
+                    AppLog.w("PickCodeService", "❌ 屏幕文字中未找到取件码", from)
+                }
             }
         }
 
@@ -120,7 +127,7 @@ class PickCodeService : Service() {
             ACTION_TRIGGER -> {
                 Log.d(TAG, "ACTION_TRIGGER received")
                 AppLog.i("PickCodeService", "收到 ACTION_TRIGGER 广播", "notification")
-                triggerCapture(this@PickCodeService)
+                triggerCapture(this@PickCodeService, "notification")
             }
             ACTION_STOP    -> { Log.d(TAG, "ACTION_STOP received"); stopSelf() }
             ACTION_MANUAL_INPUT -> handleManualInput(intent)

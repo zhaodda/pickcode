@@ -48,14 +48,11 @@ class PickCodeTileService : TileService() {
             updateTile()
         }
 
-        // 2. 折叠面板
-        tryCollapsePanel()
-
-        // 3. 无障碍节点树文字提取（tile/notification 来源会自动折叠面板后延迟提取）
-        //    注意：tile 触发时此方法会异步执行（先折叠通知栏→延迟500ms→提取），
+        // 2. 无障碍节点树文字提取（tile 来源会先模拟返回键关闭 QS 面板，再延迟 800ms 提取）
+        //    注意：tile 触发时此方法会异步执行（先关闭面板→延迟800ms→提取），
         //    所以这里返回 null 是正常的，结果由 AccessibilityService 内部回调处理
-        PickCodeAccessibilityService.extractFromScreenText()
-        Log.i(TAG, "Tile: extraction dispatched (async for tile source)")
+        PickCodeAccessibilityService.extractFromScreenText("tile")
+        Log.i(TAG, "Tile: extraction dispatched (async, will collapse panel first)")
 
         // 4. 恢复图标
         handler.postDelayed({
@@ -67,10 +64,4 @@ class PickCodeTileService : TileService() {
         }, 1500)
     }
 
-    private fun tryCollapsePanel() {
-        try {
-            val sbm = getSystemService("statusbar")
-            sbm?.javaClass?.getMethod("collapsePanels")?.invoke(sbm)
-        } catch (_: Exception) {}
-    }
 }

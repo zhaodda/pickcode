@@ -58,14 +58,17 @@ class PickCodeAccessibilityService : AccessibilityService() {
          * 效仿 Tally 记账 App 的 AccessibilityNodeInfo 节点树遍历方案，
          * 直接读取系统 UI 组件的文字内容，无需截图和 OCR。
          *
+         * @param from 触发来源，决定是否需要先折叠通知栏面板：
+         *            "auto"=内部调用(不折叠) / "notification"=通知栏按钮(折叠) /
+         *            "tile"=快速设置磁贴(折叠) / "fab"=悬浮按钮(不折叠) / "manual"=手动(不折叠)
          * @return CodeRecord? 识别到的取件码记录，null 表示未识别到或服务不可用
          */
-        fun extractFromScreenText(): CodeRecord? {
+        fun extractFromScreenText(from: String = "auto"): CodeRecord? {
             val svc = instance ?: run {
                 Log.d(TAG, "extractFromScreenText: service not available")
                 return null
             }
-            return svc.doExtractFromScreenText("auto")
+            return svc.doExtractFromScreenText(from)
         }
 
         /**
@@ -77,8 +80,8 @@ class PickCodeAccessibilityService : AccessibilityService() {
                 Log.w(TAG, "triggerScreenshot: AccessibilityService not available")
                 return false
             }
-            Log.i(TAG, "triggerScreenshot() called — dispatching to text extraction")
-            svc.handler.postDelayed({ svc.doExtractFromScreenText("manual") }, 300)
+            Log.i(TAG, "triggerScreenshot() called — dispatching to text extraction (notification source)")
+            svc.doExtractFromScreenText("notification")
             return true
         }
     }
@@ -170,12 +173,20 @@ class PickCodeAccessibilityService : AccessibilityService() {
         }
         lastExtractTime = now
 
-        // 通知栏和磁贴触发时：先折叠通知栏面板，等通知栏收起后再读取屏幕内容
+        // 通知栏和磁贴触发时：先折叠通知栏/快速设置面板，等面板收起后再读取屏幕内容
         // 否则 rootInActiveWindow 读到的是通知栏自身的 UI（按钮文字等），不是后面屏幕上的 App
+        //
+        // ⚠️ 关键决策：使用 performGlobalAction(GLOBAL_ACTION_BACK) 而非反射 collapsePanels()
+        // 原因：collapsePanels() 在 Android 8.0+ 对第三方 App 基本无效（系统限制反射调用），
+        //      而 GLOBAL_ACTION_BACK 是 AccessibilityService 官方 API，模拟按返回键，
+        //      能可靠地关闭通知栏和快速设置面板，所有 Android 版本均有效。
         if (from == "notification" || from == "tile") {
-            AppLog.i(TAG, "[$from] 先折叠通知栏，延迟500ms后读取屏幕文字", from)
-            collapseNotificationPanel()
-            handler.postDelayed({ performExtract(from) }, 500)
+            AppLog.i(TAG, "[$from] 模拟返回键关闭面板，800ms后提取屏幕文字", from)
+            // 先尝试 GLOBAL_ACTION_BACK（关闭通知栏/QS面板）
+            val collapsed = performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+            Log.d(TAG, "GLOBAL_ACTION_BACK result=$collapsed")
+            // 延迟等待面板动画完成 + 系统刷新节点树
+            handler.postDelayed({ performExtract(from) }, 800)
             return null  // 异步返回，结果由 performExtract 处理
         }
 
@@ -184,16 +195,21 @@ class PickCodeAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * 折叠通知栏/快速设置面板（通过 StatusBarManager 反射调用 collapsePanels）
+     * 折叠通知栏/快速设置面板（备用方案）
+     *
+     * 注意：此方法通过反射调用 StatusBarManager.collapsePanels()，
+     * 在 Android 8.0+ (API 26+) 上对第三方 App 基本无效（系统限制）。
+     * 主流程已改用 performGlobalAction(GLOBAL_ACTION_BACK)，此方法仅作兜底保留。
      */
+    @Suppress("unused")
     private fun collapseNotificationPanel() {
         try {
             val statusBarService = getSystemService("statusbar")
             val method = statusBarService?.javaClass?.getMethod("collapsePanels")
             method?.invoke(statusBarService)
-            Log.d(TAG, "collapseNotificationPanel: success")
+            Log.d(TAG, "collapseNotificationPanel: called (may be no-op on API 26+)")
         } catch (e: Exception) {
-            Log.w(TAG, "collapseNotificationPanel failed", e)
+            Log.w(TAG, "collapseNotificationPanel failed (expected on API 26+)", e)
         }
     }
 
