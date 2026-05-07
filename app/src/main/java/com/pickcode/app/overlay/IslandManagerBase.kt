@@ -4,18 +4,16 @@ import android.content.Context
 import com.pickcode.app.data.model.CodeRecord
 
 /**
- * 各厂商"灵动岛"通知管理器的统一抽象基类
+ * 超级岛通知管理器统一抽象基类
  *
  * 实现类：
- * - [MiuiIslandManager]  小米澎湃OS   超级岛（miui.focus.param）
- * - [OppoIslandManager]  OPPO ColorOS 流体云（notification_intelligent_intent）
- * - [VivoIslandManager]  vivo OriginOS 原子岛（notification_type=atom_notification）
- * - [FallbackIslandManager] 兜底：其他 Android 设备（标准高优先级通知横幅）
+ * - [MiuiIslandManager]  小米澎湃OS 超级岛/焦点通知（miui.focus.param）
+ * - [FallbackIslandManager] 兜底：标准 Android 通知横幅
  *
- * ╔══════════════════════════════════════════════╗
- * ║  使用方：统一通过 IslandNotificationManager   ║
- * ║  调用，无需关心具体厂商实现                    ║
- * ╚══════════════════════════════════════════════╝
+ * ╔══════════════════════════════════════════╗
+ * ║  使用方：统一通过 IslandNotificationManager ║
+ * ║  调用，无需关心具体实现                   ║
+ * ╚══════════════════════════════════════════╝
  */
 abstract class IslandManagerBase(protected val context: Context) {
 

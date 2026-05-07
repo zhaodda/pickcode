@@ -60,7 +60,7 @@ class MainActivity : AppCompatActivity() {
             } else {
                 Snackbar.make(
                     binding.root,
-                    "需要通知权限才能显示取件码提醒（超级岛/流体云/原子岛）",
+                    "需要通知权限才能显示取件码提醒（超级岛/通知横幅）",
                     Snackbar.LENGTH_LONG
                 ).setAction("去设置") {
                     startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
@@ -282,7 +282,7 @@ class MainActivity : AppCompatActivity() {
         MaterialAlertDialogBuilder(this)
             .setTitle("\uD83D\uDCCE 手动输入取件码")
             .setView(layout)
-            .setPositiveButton("提交到灵动岛") { _, _ ->
+            .setPositiveButton("提交") { _, _ ->
                 val inputText = inputEdit.text.toString().trim()
                 if (inputText.isBlank()) {
                     Snackbar.make(binding.root, "内容不能为空", Snackbar.LENGTH_SHORT).show()
@@ -307,7 +307,7 @@ class MainActivity : AppCompatActivity() {
             // 粘贴短信模式：用 CodeExtractor 自动解析
             val record = extractor.parseCode(inputText)
             if (record != null) {
-                // 解析成功 → 提交到 Service 展示到灵动岛
+                // 解析成功 → 提交到 Service 展示
                 PickCodeService.submitManualCode(
                     this, record.code, record.codeType.ordinal, record.rawText
                 )
@@ -443,44 +443,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showIslandSupportHint() {
-        val description = IslandNotificationManager.getIslandTypeDescription(this)
         val protocolVersion = IslandNotificationManager.getFocusProtocolVersion(this)
         val islandProperty  = IslandNotificationManager.isSupportIslandProperty()
 
-        when {
-            protocolVersion >= 3 && islandProperty -> {
-                Snackbar.make(
-                    binding.root,
-                    "\uD83C\uDFA3 检测到小米超级岛，建议在设置 → 通知 → 焦点通知 中开启权限",
-                    Snackbar.LENGTH_LONG
-                ).setAction("去设置") {
-                    try {
-                        startActivity(Intent("miui.intent.action.NOTIFICATION_FOCUS_SETTINGS").apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        })
-                    } catch (_: Exception) {
-                        startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                            putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
-                        })
-                    }
-                }.show()
-            }
-            Build.MANUFACTURER?.lowercase() in listOf("oppo", "oneplus") -> {
-                Snackbar.make(
-                    binding.root,
-                    "\uD83C\uDF0A 检测到 OPPO 流体云，码速达已为您自动适配",
-                    Snackbar.LENGTH_SHORT
-                ).show()
-            }
-            Build.MANUFACTURER?.lowercase() == "vivo" -> {
-                Snackbar.make(
-                    binding.root,
-                    "\u269B\uFE0F 检测到 vivo 原子岛（需开发者白名单，当前使用标准通知）",
-                    Snackbar.LENGTH_SHORT
-                ).show()
-            }
-            else -> { /* 无需提示 */ }
+        if (protocolVersion >= 3 && islandProperty) {
+            Snackbar.make(
+                binding.root,
+                "\uD83C\uDFA3 检测到小米超级岛，建议在设置 → 通知 → 焦点通知 中开启权限",
+                Snackbar.LENGTH_LONG
+            ).setAction("去设置") {
+                try {
+                    startActivity(Intent("miui.intent.action.NOTIFICATION_FOCUS_SETTINGS").apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    })
+                } catch (_: Exception) {
+                    startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+                    })
+                }
+            }.show()
         }
+        // 非超级岛设备无需额外提示
     }
 
     private fun startPickCodeService() {

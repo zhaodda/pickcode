@@ -23,8 +23,8 @@ import kotlinx.coroutines.*
  * 职责：
  * - 常驻前台通知（低优先级，始终存在）
  * - 通知栏"立即识别"按钮 → 触发无障碍节点树文字提取
- * - 处理手动输入的取件码并展示到灵动岛
- * - 通过 IslandNotificationManager 展示灵动岛通知（自动适配厂商）
+ * - 处理手动输入的取件码并展示到超级岛/通知栏
+ * - 通过 IslandNotificationManager 展示通知（自动适配小米超级岛或标准横幅）
  *
  * ══ v1.3.0 架构（纯节点树提取） ═══
  * 所有识别入口统一走 AccessibilityService.extractFromScreenText()：
