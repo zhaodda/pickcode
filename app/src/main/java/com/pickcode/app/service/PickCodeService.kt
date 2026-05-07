@@ -13,9 +13,7 @@ import com.pickcode.app.R
 import com.pickcode.app.data.model.CodeRecord
 import com.pickcode.app.data.model.CodeType
 import com.pickcode.app.data.repository.CodeRepository
-import com.pickcode.app.ocr.CodeExtractor
 import com.pickcode.app.overlay.IslandNotificationManager
-import com.pickcode.app.ui.activity.CaptureActivity
 import com.pickcode.app.util.AppLog
 import kotlinx.coroutines.*
 
@@ -24,15 +22,14 @@ import kotlinx.coroutines.*
  *
  * 职责：
  * - 常驻前台通知（低优先级，始终存在）
- * - 通知栏"立即识别"按钮 → 启动 CaptureActivity 截屏识别
+ * - 通知栏"立即识别"按钮 → 触发无障碍节点树文字提取
  * - 处理手动输入的取件码并展示到灵动岛
  * - 通过 IslandNotificationManager 展示灵动岛通知（自动适配厂商）
  *
- * ══ v1.1.0 架构变更 ═══
- * 截屏逻辑已从 Service 移至 CaptureActivity：
- * - 通知栏/Tile/FAB -> CaptureActivity.startCapture()
- * - CaptureActivity 自行处理 MediaProjection 授权 + 截图 + OCR
- * - PickCodeService 仅负责常驻通知保活 + 手动输入处理
+ * ══ v1.3.0 架构（纯节点树提取） ═══
+ * 所有识别入口统一走 AccessibilityService.extractFromScreenText()：
+ * - 通知栏/Tile/FAB → extractFromScreenText() → 节点树遍历 → 正则匹配
+ * - 不再使用 takeScreenshot API / CaptureActivity / MediaProjection
  */
 class PickCodeService : Service() {
 
@@ -48,29 +45,25 @@ class PickCodeService : Service() {
         const val NOTIFICATION_ID      = 1001
 
         /**
-         * 触发截屏识别
-         * 优先使用无障碍节点树文字提取（无需截图弹窗），失败后降级到 CaptureActivity
+         * 触发识别：通过无障碍节点树文字提取屏幕内容
+         * 唯一方案，无降级。如果无障碍服务不可用则提示用户开启。
          */
         fun triggerCapture(context: Context) {
-            AppLog.i("PickCodeService", "triggerCapture 被调用，尝试无障碍文字提取", "notification")
+            AppLog.i("PickCodeService", "triggerCapture 被调用", "notification")
 
-            // 方案A：优先使用无障碍服务提取屏幕文字（效仿Tally方案，无需截图和OCR）
+            // 直接调用无障碍服务提取屏幕文字
             val result = PickCodeAccessibilityService.extractFromScreenText()
             if (result != null) {
-                AppLog.i("PickCodeService", "✅ 无障碍文字提取成功: ${result.code}", "notification")
+                AppLog.i("PickCodeService", "✅ 识别成功: ${result.code}", "notification")
                 return
             }
 
-            // 方案B：无障碍不可用或未识别到 → 尝试异步触发无障碍截图
-            if (PickCodeAccessibilityService.isAvailable) {
-                AppLog.i("PickCodeService", "文字提取无结果，触发无障碍截屏降级", "notification")
-                PickCodeAccessibilityService.triggerScreenshot()
-                return
+            // 无障碍服务不可用或未识别到 → 提示用户
+            if (!PickCodeAccessibilityService.isAvailable) {
+                AppLog.w("PickCodeService", "⚠️ 无障碍服务未连接，请确认已开启「码速达」无障碍服务", "notification")
+            } else {
+                AppLog.w("PickCodeService", "❌ 屏幕文字中未找到取件码", "notification")
             }
-
-            // 方案C：完全降级到 CaptureActivity（MediaProjection 录屏OCR）
-            AppLog.w("PickCodeService", "无障碍服务未连接，降级到 CaptureActivity 截屏OCR", "notification")
-            CaptureActivity.startCapture(context, "notification")
         }
 
         /**
@@ -125,8 +118,8 @@ class PickCodeService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_TRIGGER -> {
-                Log.d(TAG, "ACTION_TRIGGER received, launching CaptureActivity")
-                AppLog.i("PickCodeService", "收到 ACTION_TRIGGER 广播，启动截屏识别", "notification")
+                Log.d(TAG, "ACTION_TRIGGER received")
+                AppLog.i("PickCodeService", "收到 ACTION_TRIGGER 广播", "notification")
                 triggerCapture(this@PickCodeService)
             }
             ACTION_STOP    -> { Log.d(TAG, "ACTION_STOP received"); stopSelf() }
@@ -173,12 +166,12 @@ class PickCodeService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // "立即识别" → 启动 CaptureActivity
-        val captureIntent = PendingIntent.getActivity(
+        // "立即识别" → 发广播给 AccessibilityService 执行节点树文字提取
+        val captureIntent = PendingIntent.getBroadcast(
             this, 1,
-            Intent(this, CaptureActivity::class.java).apply {
-                action = Intent.ACTION_MAIN
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            Intent(PickCodeAccessibilityService.ACTION_TRIGGER_SCREENSHOT).apply {
+                `package` = packageName
+                flags = Intent.FLAG_RECEIVER_FOREGROUND
             },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )

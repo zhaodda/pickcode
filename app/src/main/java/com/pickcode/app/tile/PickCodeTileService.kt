@@ -8,13 +8,12 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
 import com.pickcode.app.service.PickCodeAccessibilityService
-import com.pickcode.app.ui.activity.CaptureActivity
 import com.pickcode.app.util.AppLog
 
 /**
  * 快速设置磁贴（Quick Settings Tile）
  *
- * 点击后优先使用无障碍服务截屏，失败后降级到 CaptureActivity
+ * 点击后使用无障碍节点树文字提取屏幕内容，识别取件码
  */
 class PickCodeTileService : TileService() {
 
@@ -52,21 +51,19 @@ class PickCodeTileService : TileService() {
         // 2. 折叠面板
         tryCollapsePanel()
 
-        // 3. 优先尝试无障碍节点树文字提取（效仿Tally，无需截图）
+        // 3. 无障碍节点树文字提取（唯一方案）
         val result = PickCodeAccessibilityService.extractFromScreenText()
         if (result != null) {
-            Log.i(TAG, "Accessibility text extraction succeeded: ${result.code}")
-            AppLog.i("PickCodeTileService", "✅ 无障碍文字提取成功: ${result.code}", "tile")
-        } else if (PickCodeAccessibilityService.isAvailable) {
-            // 无障碍可用但文字未提取到 → 尝试异步截屏
-            Log.i(TAG, "Text extraction empty, trying screenshot fallback")
-            AppLog.i("PickCodeTileService", "文字提取无结果，尝试截屏降级", "tile")
-            PickCodeAccessibilityService.triggerScreenshot()
+            Log.i(TAG, "Text extraction succeeded: ${result.code}")
+            AppLog.i("PickCodeTileService", "✅ 识别成功: ${result.code}", "tile")
         } else {
-            // 完全降级到 CaptureActivity（MediaProjection 录屏OCR）
-            Log.w(TAG, "Accessibility service not available, falling back to CaptureActivity")
-            AppLog.w("PickCodeTileService", "无障碍服务未连接，降级到 CaptureActivity", "tile")
-            handler.postDelayed({ CaptureActivity.startCapture(this@PickCodeTileService, "tile") }, 400)
+            if (!PickCodeAccessibilityService.isAvailable) {
+                Log.w(TAG, "Accessibility service not available")
+                AppLog.w("PickCodeTileService", "⚠️ 无障碍服务未连接", "tile")
+            } else {
+                Log.d(TAG, "Text extraction returned no code")
+                AppLog.w("PickCodeTileService", "❌ 当前屏幕未找到取件码", "tile")
+            }
         }
 
         // 4. 恢复图标

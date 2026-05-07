@@ -4,9 +4,8 @@
 
     <!-- ── 权限声明 ── -->
 
-    <!-- 前台服务权限（截屏必须） -->
+    <!-- 前台服务权限 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
     <!-- 通知权限（Android 13+ 必须申请） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -51,7 +50,7 @@
             </intent-filter>
         </activity>
 
-        <!-- 截屏识别 Activity（透明全屏，用完即关） -->
+        <!-- 截屏识别 Activity（已弃用，保留声明防止类引用报错，当前版本不再调用） -->
         <activity
             android:name=".ui.activity.CaptureActivity"
             android:exported="false"
@@ -79,13 +78,12 @@
             android:exported="false"
             android:parentActivityName=".ui.activity.MainActivity" />
 
-        <!-- 前台服务：截屏 + OCR + 超级岛通知 -->
+        <!-- 前台服务：常驻通知保活 + 节点树提取中转 + 超级岛通知 -->
         <!--
             Android 14 (API 34) 限制：
             - 必须声明 foregroundServiceType，否则 startForegroundService() 抛异常
-            - mediaProjection 类型要求持有 token 才能调用 startForeground()
-            - 方案：使用 specialUse 类型，无需 token 即可调用 startForeground()
-            - targetSdk 降为 33 以避开 Android 14 的严格校验
+            - 使用 specialUse 类型，无需额外 token
+            - targetSdk 33 以避开 Android 14 的严格校验
         -->
         <service
             android:name=".service.PickCodeService"
@@ -94,7 +92,7 @@
             <!-- specialUse 类型必须在 Manifest 中声明使用原因（Android 14+） -->
             <property
                 android:name="android.app.foreground_service_special_use_reason"
-                android:value="后台截屏识别验证码，需常驻通知保障服务不被系统杀掉" />
+                android:value="常驻通知保活 + 无障碍节点树文字提取中转，需保障服务不被系统杀掉" />
         </service>
 
         <!-- Quick Settings Tile（快捷开关） -->
@@ -131,7 +129,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- 无障碍服务：截屏识别核心（替代 MediaProjection 方案） -->
+        <!-- 无障碍服务：核心 — 节点树文字提取取件码（效仿 Tally 记账App） -->
         <service
             android:name=".service.PickCodeAccessibilityService"
             android:exported="true"

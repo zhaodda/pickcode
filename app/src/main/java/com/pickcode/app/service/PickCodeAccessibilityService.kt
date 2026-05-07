@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.Bitmap
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -22,17 +21,19 @@ import kotlinx.coroutines.*
 /**
  * 码速达无障碍服务（AccessibilityService）
  *
- * ══ 核心能力演进 ═══
- * v1.0: takeScreenshot() API 截图 → ML Kit OCR（不稳定，isAvailable=false）
- * v1.1: **AccessibilityNodeInfo 节点树文字提取**（效仿 Tally 记账App方案）
- *       直接从系统 UI 节点树读取屏幕文字，无需截图、无需OCR、速度快、准确率100%
- * 降级: 若节点树提取失败 → 仍保留 takeScreenshot + OCR 作为降级方案
+ * ══ 核心能力：AccessibilityNodeInfo 节点树文字提取 ═══
+ *
+ * 效仿 Tally 记账 App 的方案，通过 getRootInActiveWindow() 获取当前屏幕的 UI 节点树，
+ * 递归遍历所有节点拼接 getText() + getContentDescription() 得到屏幕完整文字，
+ * 再用 CodeExtractor 正则匹配提取取件码。
+ *
+ * 优势：无需截图、无需 OCR、无需录屏授权弹窗、即时响应、100% 准确率。
  *
  * ══ 工作流程 ═══
  * 触发入口(通知/Tile/FAB) → extractFromScreenText()
- *   → getRootInActiveWindow() → 遍历节点树拼接文本 → CodeExtractor.parseCode()
+ *   → getRootInActiveWindow() → 遍历节点树拼接文本 → CodeExtractor.extractFromText()
  *   → 识别到取件码 → 展示灵动岛 + 存库
- *   → 未识别到 → 降级 CaptureActivity (MediaProjection)
+ *   → 未识别到 → showNoResult() 提示用户
  */
 class PickCodeAccessibilityService : AccessibilityService() {
 
@@ -45,9 +46,6 @@ class PickCodeAccessibilityService : AccessibilityService() {
         /** 识别成功广播 Action */
         const val ACTION_CODE_FOUND = "com.pickcode.CODE_FOUND"
 
-        /** MediaProjection 降级：需要权限时发出的广播 */
-        const val ACTION_NEED_PERMISSION = "com.pickcode.NEED_PERMISSION"
-
         @Volatile
         private var instance: PickCodeAccessibilityService? = null
 
@@ -55,7 +53,7 @@ class PickCodeAccessibilityService : AccessibilityService() {
         val isAvailable: Boolean get() = instance != null
 
         /**
-         * 从当前屏幕提取文字并识别取件码（首选方案）
+         * 从当前屏幕提取文字并识别取件码（唯一入口）
          *
          * 效仿 Tally 记账 App 的 AccessibilityNodeInfo 节点树遍历方案，
          * 直接读取系统 UI 组件的文字内容，无需截图和 OCR。
@@ -71,7 +69,7 @@ class PickCodeAccessibilityService : AccessibilityService() {
         }
 
         /**
-         * 触发识别（兼容旧接口，内部优先走文字提取）
+         * 通过广播触发识别（通知栏按钮使用）
          * @return true=已触发, false=服务未连接
          */
         fun triggerScreenshot(): Boolean {
@@ -79,8 +77,7 @@ class PickCodeAccessibilityService : AccessibilityService() {
                 Log.w(TAG, "triggerScreenshot: AccessibilityService not available")
                 return false
             }
-            Log.i(TAG, "triggerScreenshot() called")
-            // 优先走无障碍文字提取
+            Log.i(TAG, "triggerScreenshot() called — dispatching to text extraction")
             svc.handler.postDelayed({ svc.doExtractFromScreenText("manual") }, 300)
             return true
         }
@@ -116,28 +113,16 @@ class PickCodeAccessibilityService : AccessibilityService() {
         repository = com.pickcode.app.data.repository.CodeRepository(this)
         islandManager = IslandNotificationManager(this)
 
-        // 配置服务信息
+        // 配置服务信息（仅保留节点树内容获取相关 flag）
         try {
             val info = serviceInfo
             Log.d(TAG, "onServiceConnected: flags=${info.flags}, SDK=${Build.VERSION.SDK_INT}")
-
-            // API 34+ 设置截屏能力 flag（保留用于降级方案）
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                try {
-                    val flagField = AccessibilityServiceInfo::class.java.getDeclaredField("flagRequestScreenshot")
-                    val newFlags = info.flags or flagField.getInt(null)
-                    info.flags = newFlags
-                    Log.d(TAG, "Set flagRequestScreenshot via reflection")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Cannot set flagRequestScreenshot", e)
-                }
-            }
             serviceInfo = info
         } catch (e: Exception) {
             Log.w(TAG, "Cannot configure service info", e)
         }
 
-        // 注册广播接收器
+        // 注册广播接收器（接收通知栏按钮的触发）
         try {
             registerReceiver(screenshotReceiver, IntentFilter(ACTION_TRIGGER_SCREENSHOT))
             Log.d(TAG, "Broadcast receiver registered")
@@ -190,20 +175,22 @@ class PickCodeAccessibilityService : AccessibilityService() {
         try {
             val root = rootInActiveWindow
             if (root == null) {
-                Log.w(TAG, "rootInActiveWindow is null")
-                AppLog.w(TAG, "无法获取当前屏幕节点树", from)
+                Log.w(TAG, "rootInActiveWindow is null — 无障碍服务可能未正确授权或被系统限制")
+                AppLog.w(TAG, "无法获取当前屏幕节点树（rootInActiveWindow=null）", from)
+                handler.post { islandManager.showNoResult() }
                 return null
             }
 
             // 提取全屏文字
             val fullText = getAllTextFromNode(root)
             if (fullText.isBlank()) {
-                Log.w(TAG, "Screen text is empty")
-                AppLog.w(TAG, "屏幕文字为空", from)
+                Log.w(TAG, "Screen text is empty — 当前屏幕可能无可见文字内容或节点树为空")
+                AppLog.w(TAG, "屏幕文字为空（节点树遍历结果为空字符串）", from)
+                handler.post { islandManager.showNoResult() }
                 return null
             }
 
-            AppLog.d(TAG, "提取到屏幕文字(${fullText.length}字符): ${fullText.take(150)}")
+            AppLog.d(TAG, "提取到屏幕文字(${fullText.length}字符): ${fullText.take(200)}")
 
             // 用正则解析取件码
             val record = extractor.extractFromText(fullText)
@@ -213,15 +200,18 @@ class PickCodeAccessibilityService : AccessibilityService() {
                 return record
             } else {
                 AppLog.i(TAG, "❌ 屏幕文字中未找到取件码", from)
+                handler.post { islandManager.showNoResult() }
                 return null
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "SecurityException in extractFromScreenText", e)
             AppLog.e(TAG, "安全异常: ${e.message}", throwable = e, triggerFrom = from)
+            handler.post { islandManager.showError() }
             return null
         } catch (e: Exception) {
             Log.e(TAG, "Error in extractFromScreenText", e)
             AppLog.e(TAG, "提取异常: ${e.javaClass.simpleName}: ${e.message}", throwable = e, triggerFrom = from)
+            handler.post { islandManager.showError() }
             return null
         }
     }
@@ -266,126 +256,6 @@ class PickCodeAccessibilityService : AccessibilityService() {
         }
 
         return sb.toString()
-    }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  降级：takeScreenshot 截屏方案（保留）
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-    internal fun doCapture() {
-        handler.postDelayed({ performScreenshot() }, 500)
-    }
-
-    private fun performScreenshot() {
-        try {
-            Log.d(TAG, "performScreenshot (fallback): SDK=${Build.VERSION.SDK_INT}")
-            when {
-                Build.VERSION.SDK_INT >= 34 -> takeScreenshotApi34()
-                Build.VERSION.SDK_INT >= 28 -> takeScreenshotLegacy()
-                else -> {
-                    Log.w(TAG, "Android version too low for accessibility screenshot")
-                    islandManager.showError()
-                    notifyNeedMediaProjection()
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Screenshot failed", e)
-            islandManager.showError()
-            notifyNeedMediaProjection()
-        }
-    }
-
-    private fun notifyNeedMediaProjection() {
-        try {
-            sendBroadcast(Intent(ACTION_NEED_PERMISSION).setPackage(packageName))
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to send fallback broadcast", e)
-        }
-    }
-
-    @Suppress("DEPRECATION")
-    private fun takeScreenshotApi34() {
-        try {
-            val method = AccessibilityService::class.java.getDeclaredMethod(
-                "takeScreenshot",
-                Int::class.javaPrimitiveType,
-                java.util.concurrent.Executor::class.java,
-                Class.forName("android.accessibilityservice.AccessibilityService\$TakeScreenshotCallback")
-            )
-            method.isAccessible = true
-
-            val callbackClass = Class.forName("android.accessibilityservice.AccessibilityService\$TakeScreenshotCallback")
-            val callbackHandler = object : java.lang.reflect.InvocationHandler {
-                override fun invoke(proxy: Any?, m: java.lang.reflect.Method, args: Array<out Any>?): Any? {
-                    if (m.name == "onCompleted") handleScreenshotResult(args?.get(0))
-                    else if (m.name == "toString") return "PickCodeScreenshotCallback"
-                    return null
-                }
-            }
-            val callback = java.lang.reflect.Proxy.newProxyInstance(
-                callbackClass.classLoader, arrayOf(callbackClass), callbackHandler
-            )
-            method.invoke(this, 0, mainExecutor, callback)
-        } catch (e: Exception) {
-            Log.e(TAG, "API 34 screenshot failed, falling back to legacy", e)
-            takeScreenshotLegacy()
-        }
-    }
-
-    private fun handleScreenshotResult(result: Any?) {
-        if (result == null) {
-            handler.post { islandManager.showError() }
-            return
-        }
-        val bitmap = try {
-            result.javaClass.getMethod("getHardwareBitmap").invoke(result) as? Bitmap
-        } catch (e: Exception) { null }
-        if (bitmap != null) processBitmap(bitmap)
-        else processSnapshotViaReflection(result)
-    }
-
-    private fun processSnapshotViaReflection(result: Any) {
-        try {
-            val hwBitmap = result.javaClass.methods.find { it.name == "getHardwareBitmap" }?.invoke(result) as? Bitmap
-            if (hwBitmap != null) processBitmap(hwBitmap)
-            else islandManager.showError()
-        } catch (e: Exception) {
-            Log.e(TAG, "processSnapshotViaReflection failed", e)
-            islandManager.showError()
-        }
-    }
-
-    @Suppress("DEPRECATION")
-    private fun takeScreenshotLegacy() {
-        val result = try {
-            val method = AccessibilityService::class.java.methods.find {
-                it.name == "takeScreenshot" && it.parameterCount == 1
-            }
-            method?.invoke(this, 0)
-        } catch (e: Exception) {
-            Log.e(TAG, "Legacy takeScreenshot failed", e); null
-        }
-        if (result == null) {
-            islandManager.showError(); return
-        }
-        processSnapshotViaReflection(result)
-    }
-
-    private fun processBitmap(bitmap: Bitmap) {
-        Log.d(TAG, "Screenshot captured: ${bitmap.width}x${bitmap.height}")
-        scope.launch(Dispatchers.IO) {
-            try {
-                val record = extractor.extractFromBitmap(bitmap)
-                bitmap.recycle()
-                withContext(Dispatchers.Main) {
-                    if (record != null) onCodeFound(record)
-                    else islandManager.showNoResult()
-                }
-            } catch (e: Exception) {
-                bitmap.recycle()
-                withContext(Dispatchers.Main) { islandManager.showError() }
-            }
-        }
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
