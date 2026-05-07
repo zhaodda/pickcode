@@ -158,8 +158,8 @@ class PickCodeAccessibilityService : AccessibilityService() {
 
     /**
      * 执行从当前屏幕提取文字并识别取件码
-     * @param from 触发来源："auto" / "notification" / "tile" / "manual"
-     * @return CodeRecord? 识别结果
+     * @param from 触发来源："auto" / "notification" / "tile" / "manual" / "fab"
+     * @return CodeRecord? 识别结果（异步场景返回 null，结果通过回调处理）
      */
     internal fun doExtractFromScreenText(from: String): CodeRecord? {
         // 防抖：短时间内的重复调用直接忽略
@@ -170,6 +170,37 @@ class PickCodeAccessibilityService : AccessibilityService() {
         }
         lastExtractTime = now
 
+        // 通知栏和磁贴触发时：先折叠通知栏面板，等通知栏收起后再读取屏幕内容
+        // 否则 rootInActiveWindow 读到的是通知栏自身的 UI（按钮文字等），不是后面屏幕上的 App
+        if (from == "notification" || from == "tile") {
+            AppLog.i(TAG, "[$from] 先折叠通知栏，延迟500ms后读取屏幕文字", from)
+            collapseNotificationPanel()
+            handler.postDelayed({ performExtract(from) }, 500)
+            return null  // 异步返回，结果由 performExtract 处理
+        }
+
+        // FAB/手动触发：直接提取（通知栏未展开，屏幕内容可见）
+        return performExtract(from)
+    }
+
+    /**
+     * 折叠通知栏/快速设置面板（通过 StatusBarManager 反射调用 collapsePanels）
+     */
+    private fun collapseNotificationPanel() {
+        try {
+            val statusBarService = getSystemService("statusbar")
+            val method = statusBarService?.javaClass?.getMethod("collapsePanels")
+            method?.invoke(statusBarService)
+            Log.d(TAG, "collapseNotificationPanel: success")
+        } catch (e: Exception) {
+            Log.w(TAG, "collapseNotificationPanel failed", e)
+        }
+    }
+
+    /**
+     * 实际执行节点树遍历 + 正则匹配
+     */
+    private fun performExtract(from: String): CodeRecord? {
         AppLog.i(TAG, "开始从屏幕提取文字 [from=$from]", from)
 
         try {

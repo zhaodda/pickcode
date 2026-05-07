@@ -51,20 +51,11 @@ class PickCodeTileService : TileService() {
         // 2. 折叠面板
         tryCollapsePanel()
 
-        // 3. 无障碍节点树文字提取（唯一方案）
-        val result = PickCodeAccessibilityService.extractFromScreenText()
-        if (result != null) {
-            Log.i(TAG, "Text extraction succeeded: ${result.code}")
-            AppLog.i("PickCodeTileService", "✅ 识别成功: ${result.code}", "tile")
-        } else {
-            if (!PickCodeAccessibilityService.isAvailable) {
-                Log.w(TAG, "Accessibility service not available")
-                AppLog.w("PickCodeTileService", "⚠️ 无障碍服务未连接", "tile")
-            } else {
-                Log.d(TAG, "Text extraction returned no code")
-                AppLog.w("PickCodeTileService", "❌ 当前屏幕未找到取件码", "tile")
-            }
-        }
+        // 3. 无障碍节点树文字提取（tile/notification 来源会自动折叠面板后延迟提取）
+        //    注意：tile 触发时此方法会异步执行（先折叠通知栏→延迟500ms→提取），
+        //    所以这里返回 null 是正常的，结果由 AccessibilityService 内部回调处理
+        PickCodeAccessibilityService.extractFromScreenText()
+        Log.i(TAG, "Tile: extraction dispatched (async for tile source)")
 
         // 4. 恢复图标
         handler.postDelayed({
