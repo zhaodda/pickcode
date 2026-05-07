@@ -10,6 +10,7 @@ class PickCodeApp : Application() {
 
     companion object {
         const val CHANNEL_PERSISTENT = "pickcode_persistent"
+        const val ACTION_CODE_UPDATED = "com.pickcode.CODE_UPDATED"
         // CHANNEL_ISLAND 由 IslandNotificationManager 自行创建（IMPORTANCE_HIGH，保障超级岛弹出）
     }
 

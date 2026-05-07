@@ -35,7 +35,7 @@ import com.pickcode.app.databinding.ActivityMainBinding
 import com.pickcode.app.ocr.CodeExtractor
 import com.pickcode.app.overlay.IslandNotificationManager
 import com.pickcode.app.service.PickCodeService
-import com.pickcode.app.service.PickCodeAccessibilityService
+import com.pickcode.app.ui.activity.CaptureActivity
 import com.pickcode.app.tile.PickCodeTileService
 import com.pickcode.app.ui.adapter.CodeRecordAdapter
 import com.pickcode.app.ui.viewmodel.MainViewModel
@@ -160,21 +160,11 @@ class MainActivity : AppCompatActivity() {
     /**
      * 从主界面触发截屏识别
      *
-     * v1.0.5: 优先走 AccessibilityService 截屏（无需录屏弹窗）
-     * 如果无障碍服务不可用，降级为启动 PermissionActivity（MediaProjection 方案）
+     * v1.1.0: 统一走 CaptureActivity（处理 MediaProjection 授权 + 截图 + OCR 全流程）
+     * 首次会弹一次录屏选择框，后续自动复用 token 不再弹窗。
      */
     private fun triggerCaptureFromMain() {
-        // 优先：AccessibilityService 无障碍截屏
-        if (PickCodeAccessibilityService.isAvailable && PickCodeAccessibilityService.triggerScreenshot()) {
-            return  // 成功触发，直接返回
-        }
-
-        // 降级：启动 PermissionActivity（MediaProjection 录屏方案）
-        startActivity(
-            Intent(this, PermissionActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            }
-        )
+        CaptureActivity.startCapture(this)
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

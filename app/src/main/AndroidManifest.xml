@@ -51,7 +51,16 @@
             </intent-filter>
         </activity>
 
-        <!-- 权限请求透明 Activity（截屏权限申请专用） -->
+        <!-- 截屏识别 Activity（透明全屏，用完即关） -->
+        <activity
+            android:name=".ui.activity.CaptureActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Transparent"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:launchMode="singleInstance" />
+
+        <!-- 权限请求透明 Activity（截屏权限申请专用，保留兼容） -->
         <activity
             android:name=".ui.activity.PermissionActivity"
             android:exported="false"
