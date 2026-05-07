@@ -48,10 +48,28 @@ class PickCodeService : Service() {
         const val NOTIFICATION_ID      = 1001
 
         /**
-         * 触发截屏识别 — 启动 CaptureActivity
+         * 触发截屏识别
+         * 优先使用无障碍节点树文字提取（无需截图弹窗），失败后降级到 CaptureActivity
          */
         fun triggerCapture(context: Context) {
-            AppLog.i("PickCodeService", "triggerCapture 被调用，启动 CaptureActivity", "notification")
+            AppLog.i("PickCodeService", "triggerCapture 被调用，尝试无障碍文字提取", "notification")
+
+            // 方案A：优先使用无障碍服务提取屏幕文字（效仿Tally方案，无需截图和OCR）
+            val result = PickCodeAccessibilityService.extractFromScreenText()
+            if (result != null) {
+                AppLog.i("PickCodeService", "✅ 无障碍文字提取成功: ${result.code}", "notification")
+                return
+            }
+
+            // 方案B：无障碍不可用或未识别到 → 尝试异步触发无障碍截图
+            if (PickCodeAccessibilityService.isAvailable) {
+                AppLog.i("PickCodeService", "文字提取无结果，触发无障碍截屏降级", "notification")
+                PickCodeAccessibilityService.triggerScreenshot()
+                return
+            }
+
+            // 方案C：完全降级到 CaptureActivity（MediaProjection 录屏OCR）
+            AppLog.w("PickCodeService", "无障碍服务未连接，降级到 CaptureActivity 截屏OCR", "notification")
             CaptureActivity.startCapture(context, "notification")
         }
 

@@ -34,6 +34,7 @@ import com.pickcode.app.data.model.CodeType
 import com.pickcode.app.databinding.ActivityMainBinding
 import com.pickcode.app.ocr.CodeExtractor
 import com.pickcode.app.overlay.IslandNotificationManager
+import com.pickcode.app.service.PickCodeAccessibilityService
 import com.pickcode.app.service.PickCodeService
 import com.pickcode.app.ui.activity.CaptureActivity
 import com.pickcode.app.ui.activity.LogViewerActivity
@@ -42,6 +43,7 @@ import com.pickcode.app.ui.adapter.CodeRecordAdapter
 import com.pickcode.app.ui.viewmodel.MainViewModel
 import com.pickcode.app.util.AppLog
 import kotlinx.coroutines.launch
+import android.util.Log
 
 class MainActivity : AppCompatActivity() {
 
@@ -165,11 +167,28 @@ class MainActivity : AppCompatActivity() {
     /**
      * 从主界面触发截屏识别
      *
-     * v1.1.0: 统一走 CaptureActivity（处理 MediaProjection 授权 + 截图 + OCR 全流程）
-     * 首次会弹一次录屏选择框，后续自动复用 token 不再弹窗。
+     * v1.2.0: 优先使用无障碍节点树文字提取（效仿Tally，无需截图和OCR）
+     *         失败后降级到 CaptureActivity (MediaProjection)
      */
     private fun triggerCaptureFromMain() {
         AppLog.i("MainActivity", "用户点击了 FAB 识别按钮", "fab")
+
+        // 方案A：优先无障碍节点树文字提取（即时、无需弹窗）
+        val result = PickCodeAccessibilityService.extractFromScreenText()
+        if (result != null) {
+            AppLog.i("MainActivity", "✅ 无障碍文字提取成功: ${result.code}", "fab")
+            return
+        }
+
+        // 方案B：无障碍服务可用但文字未提取到 → 尝试异步截屏
+        if (PickCodeAccessibilityService.isAvailable) {
+            AppLog.i("MainActivity", "文字提取无结果，尝试无障碍截屏降级", "fab")
+            PickCodeAccessibilityService.triggerScreenshot()
+            return
+        }
+
+        // 方案C：完全降级到 CaptureActivity（MediaProjection 录屏OCR）
+        AppLog.w("MainActivity", "无障碍服务未连接，降级到 CaptureActivity 截屏OCR", "fab")
         CaptureActivity.startCapture(this, "fab")
     }
 

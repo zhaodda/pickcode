@@ -49,6 +49,17 @@ class CodeExtractor {
         return parseCode(fullText)
     }
 
+    /**
+     * 从纯文本中直接提取验证码（无障碍节点树文字提取入口）
+     * 无需 OCR，直接对文本做正则匹配。
+     *
+     * @param text 屏幕文字内容
+     * @return 提取到的 CodeRecord，无匹配返回 null
+     */
+    fun extractFromText(text: String): CodeRecord? {
+        return if (text.isBlank()) null else parseCode(text)
+    }
+
     private suspend fun runOcr(bitmap: Bitmap): String? =
         suspendCancellableCoroutine { cont ->
             val image = InputImage.fromBitmap(bitmap, 0)
