@@ -21,23 +21,29 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- 统计信息栏 -->
+    <!-- 日志列表区域：包含过滤栏 + 列表 -->
     <LinearLayout
-        android:id="@+id/statsBar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:orientation="vertical"
-        android:paddingHorizontal="16dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="4dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <!-- 过滤芯片组 -->
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/chipGroupFilter"
+        <!-- 统计信息栏 -->
+        <LinearLayout
+            android:id="@+id/statsBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:singleSelection="true">
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="4dp">
+
+            <!-- 过滤芯片组 -->
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/chipGroupFilter"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:singleSelection="true">
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipAll"
@@ -99,11 +105,13 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:clipToPadding="false"
         android:paddingTop="8dp"
-        android:paddingBottom="16dp"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+        android:paddingBottom="16dp" />
+
+    </LinearLayout>
 
     <!-- 空状态 -->
     <LinearLayout
