@@ -24,7 +24,6 @@ import com.pickcode.app.data.repository.CodeRepository
 import com.pickcode.app.ocr.CodeExtractor
 import com.pickcode.app.overlay.IslandNotificationManager
 import com.pickcode.app.ui.activity.MainActivity
-import com.pickcode.app.ui.activity.PermissionActivity
 import kotlinx.coroutines.*
 
 /**
@@ -32,25 +31,21 @@ import kotlinx.coroutines.*
  *
  * 职责：
  * - 常驻前台通知（低优先级，始终存在）
- * - 通过 MediaProjection 执行屏幕截图
+ * - 通过 AccessibilityService (v1.0.5+) 或 MediaProjection 执行屏幕截图
  * - 调用 ML Kit OCR 识别取件码
  * - 通过 IslandNotificationManager 展示灵动岛通知（自动适配厂商）
  * - 处理手动输入的取件码并展示到灵动岛
  *
+ * ══ v1.0.5 截屏方案变更 ═══
+ * **主方案**: PickCodeAccessibilityService.takeScreenshot() — 无需录屏弹窗，稳定可靠
+ * **降级方案**: MediaProjection（仅当无障碍服务不可用时）
+ *
  * ══ 多厂商灵动岛展示策略 ═══
  * IslandNotificationManager 内部由 IslandManagerFactory 自动选择最优实现：
- * - 小米澎湃OS3+（focusProtocolVersion >= 3）  → 原生超级岛（顶部胶囊展开动效）
- * - 小米澎湃OS1/OS2（focusProtocolVersion 1-2）→ 焦点通知横幅
- * - OPPO ColorOS 16+                           → 流体云（Live Updates API）
- * - OPPO ColorOS 14/15                         → 流体云（兼容模式）
- * - vivo OriginOS 3.0+                         → 原子岛（需白名单）
- * - 其他安卓设备                                → 标准高优先级通知横幅
- *
- * ⚠️ 已移除：SYSTEM_ALERT_WINDOW 悬浮窗方案（OverlayManager）
- * ✅ 替代方案：各厂商原生岛通知接口（统一由 IslandManagerFactory 分发）
- *
- * ══ 复制验证码 ═══
- * 通知上的"复制"按钮由 [CopyCodeReceiver] 处理（在 Manifest 中注册）
+ * - 小米澎湃OS3+ → 原生超级岛
+ * - OPPO ColorOS 16+ → 流体云
+ * - vivo OriginOS 3.0+ → 原子岛（需白名单）
+ * - 其他设备 → 标准高优先级通知横幅
  */
 class PickCodeService : Service() {
 
@@ -66,19 +61,20 @@ class PickCodeService : Service() {
         const val EXTRA_MANUAL_RAW     = "manual_raw"
         const val NOTIFICATION_ID      = 1001
 
-        /** Service 需要截屏权限时发出的广播，MainActivity/Tile 监听此广播来拉起授权页 */
-        const val ACTION_NEED_PERMISSION = "com.pickcode.NEED_PERMISSION"
-
         /**
-         * 触发截屏识别（从 Activity / Tile / 通知调用）
+         * 触发截屏识别（统一入口）
          *
-         * 流程：
-         * 1. 发送 ACTION_TRIGGER 给 Service
-         * 2. Service 检查是否已有 MediaProjection 权限
-         * 3. 有权限 → 直接截图 OCR
-         * 4. 无权限 → 由调用方（Activity/Tile）负责拉起 PermissionActivity
+         * v1.0.5 策略：
+         * 1. 优先尝试 PickCodeAccessibilityService.triggerScreenshot()（无障碍截屏）
+         * 2. 如果无障碍服务不可用 → 发送 ACTION_TRIGGER 给 Service 走 MediaProjection 降级
          */
         fun triggerCapture(context: Context) {
+            // 优先走无障碍服务（无需录屏弹窗）
+            if (PickCodeAccessibilityService.isAvailable) {
+                if (PickCodeAccessibilityService.triggerScreenshot()) return
+            }
+
+            // 降级：尝试通过 Service 的 MediaProjection 路径
             val intent = Intent(context, PickCodeService::class.java).apply {
                 action = ACTION_TRIGGER
             }
@@ -120,6 +116,7 @@ class PickCodeService : Service() {
     private lateinit var repository: CodeRepository
     private lateinit var islandManager: IslandNotificationManager
 
+    // MediaProjection 降级方案相关字段
     private var mediaProjection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
@@ -136,14 +133,12 @@ class PickCodeService : Service() {
         repository = CodeRepository(this)
         islandManager = IslandNotificationManager(this)
 
-        // 使用 ServiceCompat.startForeground() 兼容 Android 14+
         try {
             val notification = buildPersistentNotification()
             ServiceCompat.startForeground(
-                /* service = */ this,
-                /* id = */ NOTIFICATION_ID,
-                /* notification = */ notification,
-                /* foregroundServiceType = */
+                this,
+                NOTIFICATION_ID,
+                notification,
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
                     android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
                 else 0
@@ -170,33 +165,24 @@ class PickCodeService : Service() {
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  触发入口
+    //  触发入口（MediaProjection 降级路径）
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     /**
-     * 处理截屏触发请求
-     *
-     * 关键逻辑变更：
-     * - 如果已持有 MediaProjection 权限 → 直接截图
-     * - 如果没有权限 → **发送广播通知调用方去拉起 PermissionActivity**
-     *   （而不是自己 startActivity，因为 Service 启动 Activity 在某些场景受限）
-     *
-     * 调用方（MainActivity / Tile）收到此广播后应启动 PermissionActivity
+     * 处理截屏触发请求（MediaProjection 降级路径）
+     * 仅当 AccessibilityService 不可用时才会走到这里
      */
     private fun handleTrigger() {
-        if (mediaProjection != null) {
-            // 已持有 MediaProjection 权限，直接截图
-            startCapture()
-        } else {
-            // 没有权限 → 发送广播，让 MainActivity 或 Tile 去拉起 PermissionActivity
-            // 使用 LocalBroadcast 保证安全性和实时性
-            val broadcastIntent = Intent(ACTION_NEED_PERMISSION).setPackage(packageName)
-            sendBroadcast(broadcastIntent)
-        }
+        // 再试一次无障碍服务（可能刚连上）
+        if (PickCodeAccessibilityService.isAvailable && PickCodeAccessibilityService.triggerScreenshot()) return
+
+        // 最终降级：发送广播让调用方拉起 PermissionActivity（MediaProjection 方案）
+        val broadcastIntent = Intent(PickCodeAccessibilityService.ACTION_NEED_PERMISSION).setPackage(packageName)
+        sendBroadcast(broadcastIntent)
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  截屏 & OCR
+    //  截屏 & OCR（MediaProjection 降级路径）
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     private fun startCapture() {
@@ -228,7 +214,6 @@ class PickCodeService : Service() {
             imageReader!!.surface, null, null
         )
 
-        // 等待一帧渲染完成后再读取，避免获取到空帧
         scope.launch {
             delay(300)
             captureFrame()
@@ -273,10 +258,6 @@ class PickCodeService : Service() {
     //  手动输入处理
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    /**
-     * 处理从 MainActivity 提交的手动输入取件码
-     * 直接保存到数据库并展示到灵动岛
-     */
     private fun handleManualInput(intent: Intent) {
         val code = intent.getStringExtra(EXTRA_MANUAL_CODE) ?: return
         val typeOrdinal = intent.getIntExtra(EXTRA_MANUAL_TYPE, CodeType.OTHER.ordinal)
@@ -293,7 +274,6 @@ class PickCodeService : Service() {
 
     private fun onCodeFound(record: CodeRecord) {
         scope.launch { repository.insert(record) }
-        // 展示超级岛通知
         islandManager.showCode(record)
     }
 
@@ -304,16 +284,11 @@ class PickCodeService : Service() {
     /**
      * 构建常驻前台通知
      *
-     * 通知交互设计：
-     * - 点击通知主体 → 打开 MainActivity
-     * - "立即识别"按钮 → 直接启动 PermissionActivity（录屏选择框）
-     * - "停止服务"按钮 → 停止服务
-     *
-     * 设计原则：所有触发入口统一走 PermissionActivity，
-     * 用户选完屏幕后由 PermissionActivity 将结果回传给 Service，避免 Service 广播依赖
+     * v1.0.5: "立即识别"按钮改为发广播触发 AccessibilityService 截屏
+     * 不再需要 PermissionActivity 和 MediaProjection 录屏弹窗
      */
     private fun buildPersistentNotification(): Notification {
-        // 点击通知主体 → 打开 MainActivity
+        // 点击通知主体 -> 打开 MainActivity
         val mainIntent = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java).apply {
@@ -322,14 +297,10 @@ class PickCodeService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // "立即识别" 按钮 → 直接启动 PermissionActivity（录屏选择框）
-        // 用户选完屏幕后，PermissionActivity 会将 MediaProjection 结果回传给 Service
-        val triggerIntent = PendingIntent.getActivity(
+        // "立即识别" 按钮 -> 广播触发 AccessibilityService 截屏
+        val triggerIntent = PendingIntent.getBroadcast(
             this, 1,
-            Intent(this, com.pickcode.app.ui.activity.PermissionActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                putExtra("from_notification_action", true)
-            },
+            Intent(PickCodeAccessibilityService.ACTION_TRIGGER_SCREENSHOT).setPackage(packageName),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -343,7 +314,7 @@ class PickCodeService : Service() {
         return NotificationCompat.Builder(this, PickCodeApp.CHANNEL_PERSISTENT)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("码速达 已就绪")
-            .setContentText("点击打开主界面，或用下方按钮识别")
+            .setContentText("点击打开主界面，或用下方按钮立即识别")
             .setContentIntent(mainIntent)
             .addAction(0, "\uD83D\uDCEE 立即识别", triggerIntent)
             .addAction(0, "停止服务", stopIntent)

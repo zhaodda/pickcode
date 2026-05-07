@@ -6,44 +6,17 @@ import android.os.Handler
 import android.os.Looper
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import com.pickcode.app.service.PickCodeAccessibilityService
 
 /**
  * 快速设置磁贴（Quick Settings Tile）
  *
- * 用户可在下拉通知栏添加并点击，一键触发截屏识别。
+ * v1.0.5: 点击后通过 PickCodeAccessibilityService 截屏识别
+ * 不再启动 PermissionActivity，不再需要 MediaProjection 录屏弹窗
  *
- * ══ 点击后的完整流程（v1.0.4 修复）══
- *
- * ┌──────────────┐
- * │  用户点击 Tile  │
- * └──────┬───────┘
- *        ▼
- * ┌──────────────┐     ┌─────────────────────┐
- * │ 1. 更新状态    │────▶│ 2. 折叠通知面板       │
- * │ STATE_ACTIVE  │    │ (startActivityAnd-   │
- * │ "识别中..."    │    │  Collapse)           │
- * └──────────────┘     └──────────┬──────────┘
- *                                 ▼
- *                       ┌─────────────────────┐
- *                       │ 3. 启动 Permission-  │
- *                       │    Activity (透明)   │
- *                       │ → 弹出系统录屏选择框   │
- *                       └──────────┬──────────┘
- *                                  ▼
- *                       ┌─────────────────────┐
- *                       │ 4. 用户选择屏幕后     │
- *                       │ PermissionActivity   │
- *                       │ 将结果回传给 Service   │
- *                       └──────────┬──────────┘
- *                                  ▼
- *                       ┌─────────────────────┐
- *                       │ 5. Service 截图+OCR  │
- *                       │ → 展示灵动岛          │
- *                       └─────────────────────┘
- *
- * v1.0.4 修复要点：
- * - 不再调用 PickCodeService.triggerCapture()（避免 Service 无权限时发无效广播）
- * - 直接启动 PermissionActivity 作为唯一入口，简单可靠
+ * ══ 流程（v1.0.5）══
+ * 用户点击 Tile -> 折叠面板 -> 触发 AccessibilityService.takeScreenshot()
+ * -> 延迟 500ms（等面板收起） -> 截图 -> OCR -> 展示灵动岛
  */
 class PickCodeTileService : TileService() {
 
@@ -64,45 +37,15 @@ class PickCodeTileService : TileService() {
     override fun onClick() {
         super.onClick()
 
-        // 1. 切换到激活状态（视觉反馈：让用户看到点击生效了）
+        // 1. 切换到激活状态（视觉反馈）
         qsTile?.apply {
             state = Tile.STATE_ACTIVE
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) subtitle = "识别中..."
             updateTile()
         }
 
-        // 2. 直接启动 PermissionActivity（录屏授权页）— 唯一入口
-        // 用户选择屏幕后，PermissionActivity 将 MediaProjection 结果回传给 Service
-        val permissionIntent = Intent(
-            this,
-            com.pickcode.app.ui.activity.PermissionActivity::class.java
-        ).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            putExtra("from_tile", true)
-        }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            // API 34+: startActivityAndCollapse 同时折叠通知面板 + 启动 Activity
-            try {
-                startActivityAndCollapse(permissionIntent)
-            } catch (_: Exception) {
-                // 某些 ROM 可能限制，降级为普通 startActivity
-                try {
-                    startActivity(permissionIntent)
-                } catch (_: Exception) { /* 无力回天 */ }
-            }
-        } else {
-            // API < 34: 先反射折叠状态栏，再启动授权页
-            try {
-                val statusBarManager = getSystemService("statusbar")
-                val collapseMethod = statusBarManager?.javaClass?.getMethod("collapsePanels")
-                collapseMethod?.invoke(statusBarManager)
-            } catch (_: Exception) { /* 忽略 */ }
-
-            try {
-                startActivity(permissionIntent)
-            } catch (_: Exception) { /* 忽略 */ }
-        }
+        // 2. 折叠通知面板 + 触发无障碍截屏
+        collapseAndCapture()
 
         // 3. 1.5 秒后恢复图标状态
         handler.postDelayed({
@@ -112,5 +55,55 @@ class PickCodeTileService : TileService() {
                 updateTile()
             }
         }, 1500)
+    }
+
+    /**
+     * 折叠通知面板后触发截屏
+     */
+    private fun collapseAndCapture() {
+        // 折叠面板（API 34+ 使用 StatusBarManager，旧版用反射）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                // API 34: StatusBarManager.collapsePanels()
+                val sbm = getSystemService("statusbar")
+                sbm?.javaClass?.getMethod("collapsePanels")?.invoke(sbm)
+            } catch (_: Exception) {}
+        } else {
+            // 反射折叠
+            try {
+                val sb = getSystemService("statusbar")
+                sb?.javaClass?.getMethod("collapsePanels")?.invoke(sb)
+            } catch (_: Exception) {}
+        }
+
+        // 延迟后触发截图（确保面板已收起）
+        handler.postDelayed({
+            triggerScreenshot()
+        }, 400)
+    }
+
+    /**
+     * 触发 AccessibilityService 截屏
+     * 如果无障碍服务不可用，尝试降级到 MediaProjection 路径
+     */
+    private fun triggerScreenshot() {
+        // 方案1：优先走 AccessibilityService（主方案）
+        if (PickCodeAccessibilityService.isAvailable) {
+            if (PickCodeAccessibilityService.triggerScreenshot()) return
+        }
+
+        // 方案2：降级走 Service 的 MediaProjection 路径
+        try {
+            val serviceIntent = Intent(this, com.pickcode.app.service.PickCodeService::class.java).apply {
+                action = "com.pickcode.TRIGGER"
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } catch (_: Exception) {
+            // 都失败了... 无力回天
+        }
     }
 }

@@ -35,6 +35,7 @@ import com.pickcode.app.databinding.ActivityMainBinding
 import com.pickcode.app.ocr.CodeExtractor
 import com.pickcode.app.overlay.IslandNotificationManager
 import com.pickcode.app.service.PickCodeService
+import com.pickcode.app.service.PickCodeAccessibilityService
 import com.pickcode.app.tile.PickCodeTileService
 import com.pickcode.app.ui.adapter.CodeRecordAdapter
 import com.pickcode.app.ui.viewmodel.MainViewModel
@@ -159,10 +160,16 @@ class MainActivity : AppCompatActivity() {
     /**
      * 从主界面触发截屏识别
      *
-     * 直接启动 PermissionActivity（透明授权页），
-     * 用户选择屏幕后由 PermissionActivity 回传结果给 Service
+     * v1.0.5: 优先走 AccessibilityService 截屏（无需录屏弹窗）
+     * 如果无障碍服务不可用，降级为启动 PermissionActivity（MediaProjection 方案）
      */
     private fun triggerCaptureFromMain() {
+        // 优先：AccessibilityService 无障碍截屏
+        if (PickCodeAccessibilityService.isAvailable && PickCodeAccessibilityService.triggerScreenshot()) {
+            return  // 成功触发，直接返回
+        }
+
+        // 降级：启动 PermissionActivity（MediaProjection 录屏方案）
         startActivity(
             Intent(this, PermissionActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -377,11 +384,54 @@ class MainActivity : AppCompatActivity() {
                 )
                 .setPositiveButton("我知道了") { _, _ ->
                     prefs.edit().putBoolean("tile_guide_shown", true).apply()
-                    showIslandSupportHint()
+                    showA11yGuideIfNeeded()
                 }
                 .setCancelable(false)
                 .show()
         }, 500)
+    }
+
+    /**
+     * 检查并显示无障碍服务引导
+     * v1.0.5: 无障碍服务是截屏识别的核心，必须引导用户开启
+     */
+    private fun showA11yGuideIfNeeded() {
+        val prefs = getSharedPreferences("pickcode_prefs", MODE_PRIVATE)
+        if (prefs.getBoolean("a11y_guide_shown", false)) {
+            showIslandSupportHint()
+            return
+        }
+
+        // 延迟弹出，等 Tile 引导消失后再弹
+        binding.root.postDelayed({
+            AlertDialog.Builder(this)
+                .setTitle("\uD83C\uDF1F 开启无障碍服务")
+                .setMessage(
+                    "码速达需要「无障碍服务」权限来实现一键截图识别。\n\n" +
+                    "开启后可以：\n" +
+                    "• \u270F\uFE0F 点击即识别（无需每次选择录屏范围）\n" +
+                    "• \uD83D\uDCBB 通知栏按钮直接可用\n" +
+                    "• \uD83D\uDDD3 Tile 快捷开关稳定响应\n\n" +
+                    "\u26A1 开启步骤：\n" +
+                    "1. 点击下方「去设置」\n" +
+                    "2. 找到「码速达」\n" +
+                    "3. 开启开关"
+                )
+                .setPositiveButton("去设置") { _, _ ->
+                    prefs.edit().putBoolean("a11y_guide_shown", true).apply()
+                    try {
+                        startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        })
+                    } catch (_: Exception) {}
+                }
+                .setNegativeButton("稍后") { _, _ ->
+                    prefs.edit().putBoolean("a11y_guide_shown", true).apply()
+                    showIslandSupportHint()
+                }
+                .setCancelable(false)
+                .show()
+        }, 800)
     }
 
     private fun showIslandSupportHint() {
