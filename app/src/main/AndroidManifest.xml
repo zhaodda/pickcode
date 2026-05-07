@@ -61,10 +61,22 @@
             android:parentActivityName=".ui.activity.MainActivity" />
 
         <!-- 前台服务：截屏 + OCR + 超级岛通知 -->
-        <!-- foregroundServiceType 不设为 mediaProjection，避免 API 34 必须持 token 才能 startForeground 的限制 -->
+        <!--
+            Android 14 (API 34) 限制：
+            - 必须声明 foregroundServiceType，否则 startForegroundService() 抛异常
+            - mediaProjection 类型要求持有 token 才能调用 startForeground()
+            - 方案：使用 specialUse 类型，无需 token 即可调用 startForeground()
+            - targetSdk 降为 33 以避开 Android 14 的严格校验
+        -->
         <service
             android:name=".service.PickCodeService"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <!-- specialUse 类型必须在 Manifest 中声明使用原因（Android 14+） -->
+            <property
+                android:name="android.app.foreground_service_special_use_reason"
+                android:value="后台截屏识别验证码，需常驻通知保障服务不被系统杀掉" />
+        </service>
 
         <!-- Quick Settings Tile（快捷开关） -->
         <service

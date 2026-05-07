@@ -15,6 +15,7 @@ import android.os.IBinder
 import android.util.DisplayMetrics
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import com.pickcode.app.PickCodeApp
 import com.pickcode.app.R
 import com.pickcode.app.data.model.CodeRecord
@@ -90,12 +91,22 @@ class PickCodeService : Service() {
         super.onCreate()
         repository = CodeRepository(this)
         islandManager = IslandNotificationManager(this)
-        // 安全启动前台服务：Android 14+ 对 mediaProjection 类型有限制
-        // 已移除 foregroundServiceType=mediaProjection，此处用默认类型即可
+
+        // 使用 ServiceCompat.startForeground() 兼容 Android 14+
+        // targetSdk=33 时 Android 14 设备会走 Android 13 行为，无需 specialUse type
+        // 但 Manifest 已声明 specialUse + <property>，为未来升级 targetSdk=34 做准备
         try {
-            startForeground(NOTIFICATION_ID, buildPersistentNotification())
-        } catch (e: SecurityException) {
-            // 极端情况：系统仍拒绝 startForeground，记录日志后继续
+            val notification = buildPersistentNotification()
+            ServiceCompat.startForeground(
+                /* service = */ this,
+                /* id = */ NOTIFICATION_ID,
+                /* notification = */ notification,
+                /* foregroundServiceType = */
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                else 0
+            )
+        } catch (e: Exception) {
             e.printStackTrace()
         }
     }
