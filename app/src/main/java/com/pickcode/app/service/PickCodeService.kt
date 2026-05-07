@@ -16,6 +16,7 @@ import com.pickcode.app.data.repository.CodeRepository
 import com.pickcode.app.ocr.CodeExtractor
 import com.pickcode.app.overlay.IslandNotificationManager
 import com.pickcode.app.ui.activity.CaptureActivity
+import com.pickcode.app.util.AppLog
 import kotlinx.coroutines.*
 
 /**
@@ -50,7 +51,8 @@ class PickCodeService : Service() {
          * 触发截屏识别 — 启动 CaptureActivity
          */
         fun triggerCapture(context: Context) {
-            CaptureActivity.startCapture(context)
+            AppLog.i("PickCodeService", "triggerCapture 被调用，启动 CaptureActivity", "notification")
+            CaptureActivity.startCapture(context, "notification")
         }
 
         /**
@@ -99,16 +101,17 @@ class PickCodeService : Service() {
         }
 
         Log.i(TAG, "PickCodeService running as foreground")
+        AppLog.i("PickCodeService", "PickCodeService 已作为前台服务启动")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_TRIGGER -> {
-                // 收到触发请求 → 启动 CaptureActivity
                 Log.d(TAG, "ACTION_TRIGGER received, launching CaptureActivity")
+                AppLog.i("PickCodeService", "收到 ACTION_TRIGGER 广播，启动截屏识别", "notification")
                 triggerCapture(this@PickCodeService)
             }
-            ACTION_STOP    -> stopSelf()
+            ACTION_STOP    -> { Log.d(TAG, "ACTION_STOP received"); stopSelf() }
             ACTION_MANUAL_INPUT -> handleManualInput(intent)
         }
         return START_STICKY

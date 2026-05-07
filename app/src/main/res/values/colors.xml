@@ -27,4 +27,7 @@
     <color name="star_active">#EF9F27</color>
     <color name="star_inactive">#B4B2A9</color>
     <color name="danger">#E24B4A</color>
+
+    <!-- 日志相关 -->
+    <color name="divider">#1A000000</color>
 </resources>

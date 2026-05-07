@@ -36,9 +36,11 @@ import com.pickcode.app.ocr.CodeExtractor
 import com.pickcode.app.overlay.IslandNotificationManager
 import com.pickcode.app.service.PickCodeService
 import com.pickcode.app.ui.activity.CaptureActivity
+import com.pickcode.app.ui.activity.LogViewerActivity
 import com.pickcode.app.tile.PickCodeTileService
 import com.pickcode.app.ui.adapter.CodeRecordAdapter
 import com.pickcode.app.ui.viewmodel.MainViewModel
+import com.pickcode.app.util.AppLog
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -72,6 +74,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
+
+        // 初始化运行日志
+        AppLog.init(this)
 
         setupRecyclerView()
         setupFab()
@@ -164,7 +169,8 @@ class MainActivity : AppCompatActivity() {
      * 首次会弹一次录屏选择框，后续自动复用 token 不再弹窗。
      */
     private fun triggerCaptureFromMain() {
-        CaptureActivity.startCapture(this)
+        AppLog.i("MainActivity", "用户点击了 FAB 识别按钮", "fab")
+        CaptureActivity.startCapture(this, "fab")
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -498,6 +504,11 @@ class MainActivity : AppCompatActivity() {
         return when (item.itemId) {
             R.id.action_settings -> {
                 startActivity(Intent(this, SettingsActivity::class.java))
+                true
+            }
+            R.id.action_logs -> {
+                AppLog.i("MainActivity", "用户打开了运行日志查看器")
+                startActivity(Intent(this, LogViewerActivity::class.java))
                 true
             }
             R.id.action_clear -> {

@@ -7,17 +7,12 @@ import android.os.Looper
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import com.pickcode.app.ui.activity.CaptureActivity
+import com.pickcode.app.util.AppLog
 
 /**
  * 快速设置磁贴（Quick Settings Tile）
  *
- * v1.1.0: 点击后启动 CaptureActivity 进行截屏识别
- * CaptureActivity 会处理 MediaProjection 授权、截图、OCR 全流程
- *
- * ══ 流程 ═══
- * 用户点击 Tile -> 折叠面板(400ms) -> CaptureActivity.startCapture()
- * -> 首次: 弹录屏选择框 -> 截图 -> OCR -> 展示结果 -> 自动关闭
- * -> 后续: 直接截图（token 已缓存）-> OCR -> 展示结果 -> 自动关闭
+ * 点击后启动 CaptureActivity 进行截屏识别
  */
 class PickCodeTileService : TileService() {
 
@@ -38,6 +33,8 @@ class PickCodeTileService : TileService() {
     override fun onClick() {
         super.onClick()
 
+        AppLog.i("PickCodeTileService", "磁贴被点击", "tile")
+
         // 1. 视觉反馈
         qsTile?.apply {
             state = Tile.STATE_ACTIVE
@@ -47,7 +44,8 @@ class PickCodeTileService : TileService() {
 
         // 2. 折叠面板 + 延迟启动截屏
         tryCollapsePanel()
-        handler.postDelayed({ CaptureActivity.startCapture(this@PickCodeTileService) }, 400)
+        handler.postDelayed({ CaptureActivity.startCapture(this@PickCodeTileService, "tile") }, 400)
+        AppLog.i("PickCodeTileService", "已调度 CaptureActivity.startCapture (延迟400ms)", "tile")
 
         // 3. 恢复图标
         handler.postDelayed({

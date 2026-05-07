@@ -3,19 +3,16 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
-        android:id="@+id/action_settings"
-        android:title="设置"
+        android:id="@+id/action_share"
+        android:title="分享日志"
         android:icon="@drawable/ic_scan"
-        app:showAsAction="never" />
-
-    <item
-        android:id="@+id/action_logs"
-        android:title="\uD83D\uDCDD 运行日志"
-        app:showAsAction="never" />
+        app:showAsAction="never"
+        android:alphabeticShortcut="s" />
 
     <item
         android:id="@+id/action_clear"
-        android:title="清空历史"
+        android:title="清空日志"
+        android:icon="@drawable/ic_scan"
         app:showAsAction="never" />
 
 </menu>

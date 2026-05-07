@@ -73,6 +73,12 @@
             android:exported="false"
             android:parentActivityName=".ui.activity.MainActivity" />
 
+        <!-- 运行日志查看器 -->
+        <activity
+            android:name=".ui.activity.LogViewerActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.activity.MainActivity" />
+
         <!-- 前台服务：截屏 + OCR + 超级岛通知 -->
         <!--
             Android 14 (API 34) 限制：

@@ -24,23 +24,15 @@ import com.pickcode.app.data.model.CodeRecord
 import com.pickcode.app.data.repository.CodeRepository
 import com.pickcode.app.ocr.CodeExtractor
 import com.pickcode.app.overlay.IslandNotificationManager
+import com.pickcode.app.util.AppLog
 import kotlinx.coroutines.*
 import java.util.concurrent.Executors
 
 /**
  * 截屏识别 Activity（透明全屏，用完即关）
  *
- * ══ 使用方式 ═══
- * 从任意入口调用 CaptureActivity.startCapture(context)
- * Activity 会自动处理：
- *   1. 首次使用 → 弹录屏授权 → 缓存 token → 截图
- *   2. 后续使用 → 直接用缓存 token 截图（不再弹窗！）
- *   3. 截图 → OCR → 展示灵动岛 → 自动关闭
- *
- * ══ 为什么不用 AccessibilityService？══
- * - takeScreenshot() API 在部分设备/ROM 上不稳定
- * - 无障碍服务不保证常驻运行
- * - MediaProjection 是最广泛兼容的方案
+ * 使用方式：CaptureActivity.startCapture(context, triggerFrom)
+ * triggerFrom: "notification" / "tile" / "fab" / "manual" / "unknown"
  */
 class CaptureActivity : Activity() {
 
@@ -49,16 +41,16 @@ class CaptureActivity : Activity() {
         private const val REQ_SCREEN_CAPTURE = 1001
         private const val CAPTURE_DELAY_MS = 350L
 
-        /** 缓存的 MediaProjection（首次授权后复用，避免每次弹窗） */
         @Volatile
         private var cachedProjection: MediaProjection? = null
         private var cachedResultCode: Int = 0
         private var cachedResultData: Intent? = null
 
-        /** 启动截屏识别（统一入口） */
-        fun startCapture(context: Context) {
+        fun startCapture(context: Context, triggerFrom: String = "unknown") {
+            AppLog.i("CaptureActivity", "startCapture 被调用", triggerFrom)
             val intent = Intent(context, CaptureActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("trigger_from", triggerFrom)
             }
             context.startActivity(intent)
         }
@@ -70,7 +62,6 @@ class CaptureActivity : Activity() {
         }
     }
 
-    // 用自定义 CoroutineScope 替代 lifecycleScope（因为 Activity 没有内置 lifecycleScope）
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val handler = Handler(Looper.getMainLooper())
     private val extractor = CodeExtractor()
@@ -78,9 +69,12 @@ class CaptureActivity : Activity() {
     private lateinit var repository: CodeRepository
     private var imageReader: ImageReader? = null
     private var virtualDisplay: VirtualDisplay? = null
+    private lateinit var triggerFrom: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        triggerFrom = intent?.getStringExtra("trigger_from") ?: "unknown"
 
         window?.setFlags(
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
@@ -95,21 +89,20 @@ class CaptureActivity : Activity() {
         islandManager = IslandNotificationManager(this)
         repository = CodeRepository(this)
 
-        Log.d(TAG, "onCreate. Cached projection exists: ${cachedProjection != null}")
+        Log.d(TAG, "onCreate. Cached projection exists: ${cachedProjection != null}, triggerFrom=$triggerFrom")
+        AppLog.i("CaptureActivity", "onCreate — 缓存token存在=${cachedProjection != null}, 触发入口=$triggerFrom", triggerFrom)
 
         handler.postDelayed({ beginCapture() }, CAPTURE_DELAY_MS)
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  截屏主流程
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
     private fun beginCapture() {
         if (cachedProjection != null && cachedResultData != null) {
             Log.d(TAG, "Using cached projection")
+            AppLog.i("CaptureActivity", "使用缓存的 MediaProjection，跳过授权", triggerFrom)
             performScreenCapture(cachedResultCode, cachedResultData!!)
         } else {
             Log.d(TAG, "No cache, requesting permission")
+            AppLog.i("CaptureActivity", "无缓存，请求录屏授权", triggerFrom)
             requestScreenCapturePermission()
         }
     }
@@ -118,8 +111,10 @@ class CaptureActivity : Activity() {
         try {
             val mpm = getSystemService(MediaProjectionManager::class.java)
             startActivityForResult(mpm.createScreenCaptureIntent(), REQ_SCREEN_CAPTURE)
+            AppLog.i("CaptureActivity", "弹出录屏授权对话框", triggerFrom)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start capture intent", e)
+            AppLog.e("CaptureActivity", "启动录屏授权对话框失败", e, triggerFrom)
             showToast("无法启动截屏权限请求")
             finish()
         }
@@ -131,6 +126,7 @@ class CaptureActivity : Activity() {
 
         if (resultCode == RESULT_OK && data != null) {
             Log.d(TAG, "User granted permission")
+            AppLog.i("CaptureActivity", "用户授权了录屏权限", triggerFrom)
             cachedResultCode = resultCode
             cachedResultData = data
 
@@ -139,20 +135,19 @@ class CaptureActivity : Activity() {
             cachedProjection?.registerCallback(object : MediaProjection.Callback() {
                 override fun onStop() {
                     Log.w(TAG, "Projection stopped, clearing cache")
+                    AppLog.w("CaptureActivity", "MediaProjection 已停止，缓存已清除", triggerFrom)
                     cachedProjection = null
                 }
             }, null)
 
             performScreenCapture(resultCode, data)
         } else {
+            AppLog.w("CaptureActivity", "用户拒绝了录屏授权", triggerFrom)
             showToast("需要截屏权限才能识别验证码")
             finish()
         }
     }
 
-    /**
-     * 创建 VirtualDisplay -> ImageReader 接帧 -> OCR
-     */
     private fun performScreenCapture(resultCode: Int, resultData: Intent) {
         try {
             val mpm = getSystemService(MediaProjectionManager::class.java)
@@ -165,9 +160,11 @@ class CaptureActivity : Activity() {
             val h = metrics.heightPixels
             val dpi = metrics.densityDpi
             Log.d(TAG, "Screen: ${w}x${h} @ ${dpi}dpi")
+            AppLog.d("CaptureActivity", "屏幕参数: ${w}x${h} @ ${dpi}dpi", triggerFrom)
 
             imageReader?.close()
             imageReader = ImageReader.newInstance(w, h, PixelFormat.RGBA_8888, 2)
+            AppLog.d("CaptureActivity", "创建 VirtualDisplay (${w}x${h})", triggerFrom)
 
             virtualDisplay = projection.createVirtualDisplay(
                 "PickCode-Capture", w, h, dpi,
@@ -175,17 +172,18 @@ class CaptureActivity : Activity() {
                 imageReader!!.surface, null, null
             )
 
-            // 等渲染完成再读取
             scope.launch {
                 delay(400)
                 captureFrameAndProcess()
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "SecurityException - token expired?", e)
+            AppLog.e("CaptureActivity", "SecurityException - token 可能已过期，重新请求授权", e, triggerFrom)
             clearCachedProjection()
             requestScreenCapturePermission()
         } catch (e: Exception) {
             Log.e(TAG, "performScreenCapture failed", e)
+            AppLog.e("CaptureActivity", "performScreenCapture 失败", e, triggerFrom)
             islandManager.showError()
             safeFinishDelayed(500)
         }
@@ -196,6 +194,7 @@ class CaptureActivity : Activity() {
             val image = imageReader?.acquireLatestImage()
             if (image == null) {
                 Log.w(TAG, "acquireLatestImage returned null")
+                AppLog.w("CaptureActivity", "acquireLatestImage 返回 null，截图失败", triggerFrom)
                 islandManager.showNoResult()
                 safeFinishDelayed(300)
                 return
@@ -215,6 +214,7 @@ class CaptureActivity : Activity() {
             } finally { image.close() }
 
             Log.d(TAG, "Captured: ${bitmap.width}x${bitmap.height}, running OCR...")
+            AppLog.d("CaptureActivity", "截图成功 (${bitmap.width}x${bitmap.height})，开始 OCR", triggerFrom)
 
             val record = withContext(Dispatchers.IO) {
                 try { extractor.extractFromBitmap(bitmap) }
@@ -224,25 +224,24 @@ class CaptureActivity : Activity() {
             withContext(Dispatchers.Main) {
                 if (record != null) {
                     Log.i(TAG, "Code found: ${record.code} (${record.codeType})")
+                    AppLog.i("CaptureActivity", "OCR识别成功：${record.codeType.emoji} ${record.code}", triggerFrom)
                     scope.launch(Dispatchers.IO) { repository.insert(record) }
                     islandManager.showCode(record)
                     sendBroadcast(Intent(PickCodeApp.ACTION_CODE_UPDATED).setPackage(packageName))
                 } else {
                     Log.d(TAG, "No code found")
+                    AppLog.w("CaptureActivity", "OCR未识别到取件码", triggerFrom)
                     islandManager.showNoResult()
                 }
                 safeFinishDelayed(500)
             }
         } catch (e: Exception) {
             Log.e(TAG, "captureFrameAndProcess error", e)
+            AppLog.e("CaptureActivity", "captureFrameAndProcess 异常", e, triggerFrom)
             islandManager.showError()
             safeFinishDelayed(500)
         }
     }
-
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  工具方法
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     private fun safeFinishDelayed(ms: Long) {
         handler.postDelayed({
@@ -251,6 +250,7 @@ class CaptureActivity : Activity() {
     }
 
     override fun onDestroy() {
+        AppLog.d("CaptureActivity", "onDestroy — Activity 销毁", triggerFrom)
         scope.cancel()
         virtualDisplay?.release()
         imageReader?.close()
