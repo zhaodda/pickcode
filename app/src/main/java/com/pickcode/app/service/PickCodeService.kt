@@ -34,8 +34,9 @@ import kotlinx.coroutines.*
  * - 通过 MediaProjection 执行屏幕截图
  * - 调用 ML Kit OCR 识别取件码
  * - 通过 IslandNotificationManager 展示灵动岛通知（自动适配厂商）
+ * - 处理手动输入的取件码并展示到灵动岛
  *
- * ══ 多厂商灵动岛展示策略 ══
+ * ══ 多厂商灵动岛展示策略 ═══
  * IslandNotificationManager 内部由 IslandManagerFactory 自动选择最优实现：
  * - 小米澎湃OS3+（focusProtocolVersion >= 3）  → 原生超级岛（顶部胶囊展开动效）
  * - 小米澎湃OS1/OS2（focusProtocolVersion 1-2）→ 焦点通知横幅
@@ -47,7 +48,7 @@ import kotlinx.coroutines.*
  * ⚠️ 已移除：SYSTEM_ALERT_WINDOW 悬浮窗方案（OverlayManager）
  * ✅ 替代方案：各厂商原生岛通知接口（统一由 IslandManagerFactory 分发）
  *
- * ══ 复制验证码 ══
+ * ══ 复制验证码 ═══
  * 通知上的"复制"按钮由 [CopyCodeReceiver] 处理（在 Manifest 中注册）
  */
 class PickCodeService : Service() {
@@ -56,13 +57,47 @@ class PickCodeService : Service() {
         const val ACTION_TRIGGER       = "com.pickcode.TRIGGER"
         const val ACTION_STOP          = "com.pickcode.STOP"
         const val ACTION_MEDIA_RESULT  = "com.pickcode.MEDIA_RESULT"
+        const val ACTION_MANUAL_INPUT  = "com.pickcode.MANUAL_INPUT"
         const val EXTRA_RESULT_CODE    = "result_code"
         const val EXTRA_RESULT_DATA    = "result_data"
+        const val EXTRA_MANUAL_CODE    = "manual_code"
+        const val EXTRA_MANUAL_TYPE    = "manual_type"   // CodeType ordinal
+        const val EXTRA_MANUAL_RAW     = "manual_raw"
         const val NOTIFICATION_ID      = 1001
 
+        /**
+         * 触发截屏识别（从 Activity / Tile / 通知调用）
+         *
+         * 流程：
+         * 1. 发送 ACTION_TRIGGER 给 Service
+         * 2. Service 检查是否已有 MediaProjection 权限
+         * 3. 有权限 → 直接截图 OCR
+         * 4. 无权限 → 由调用方（Activity/Tile）负责拉起 PermissionActivity
+         */
         fun triggerCapture(context: Context) {
             val intent = Intent(context, PickCodeService::class.java).apply {
                 action = ACTION_TRIGGER
+            }
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        /**
+         * 提交手动输入的取件码（从 MainActivity 对话框调用）
+         */
+        fun submitManualCode(context: Context, code: String, typeOrdinal: Int, rawText: String) {
+            val intent = Intent(context, PickCodeService::class.java).apply {
+                action = ACTION_MANUAL_INPUT
+                putExtra(EXTRA_MANUAL_CODE, code)
+                putExtra(EXTRA_MANUAL_TYPE, typeOrdinal)
+                putExtra(EXTRA_MANUAL_RAW, rawText)
             }
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -87,14 +122,15 @@ class PickCodeService : Service() {
     private var pendingResultCode: Int = 0
     private var pendingResultData: Intent? = null
 
+    /** 标记是否有有效的 MediaProjection 授权（用于外部查询） */
+    var hasMediaProjection: Boolean get() = mediaProjection != null
+
     override fun onCreate() {
         super.onCreate()
         repository = CodeRepository(this)
         islandManager = IslandNotificationManager(this)
 
         // 使用 ServiceCompat.startForeground() 兼容 Android 14+
-        // targetSdk=33 时 Android 14 设备会走 Android 13 行为，无需 specialUse type
-        // 但 Manifest 已声明 specialUse + <property>，为未来升级 targetSdk=34 做准备
         try {
             val notification = buildPersistentNotification()
             ServiceCompat.startForeground(
@@ -122,26 +158,40 @@ class PickCodeService : Service() {
                 else @Suppress("DEPRECATION") intent.getParcelableExtra(EXTRA_RESULT_DATA)
                 startCapture()
             }
+            ACTION_MANUAL_INPUT -> handleManualInput(intent)
         }
         return START_STICKY
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  触发入口
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+    /**
+     * 处理截屏触发请求
+     *
+     * 关键逻辑变更：
+     * - 如果已持有 MediaProjection 权限 → 直接截图
+     * - 如果没有权限 → **发送广播通知调用方去拉起 PermissionActivity**
+     *   （而不是自己 startActivity，因为 Service 启动 Activity 在某些场景受限）
+     *
+     * 调用方（MainActivity / Tile）收到此广播后应启动 PermissionActivity
+     */
     private fun handleTrigger() {
         if (mediaProjection != null) {
             // 已持有 MediaProjection 权限，直接截图
             startCapture()
         } else {
-            // 启动透明 Activity 向用户申请截屏授权
-            startActivity(
-                Intent(this, PermissionActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                }
-            )
+            // 没有权限 → 发送广播，让 MainActivity 或 Tile 去拉起 PermissionActivity
+            // 使用 LocalBroadcast 保证安全性和实时性
+            val broadcastIntent = Intent(ACTION_NEED_PERMISSION).setPackage(packageName)
+            sendBroadcast(broadcastIntent)
         }
+    }
+
+    companion object {
+        /** Service 需要截屏权限时发出的广播，MainActivity/Tile 监听此广播来拉起授权页 */
+        const val ACTION_NEED_PERMISSION = "com.pickcode.NEED_PERMISSION"
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -218,10 +268,31 @@ class PickCodeService : Service() {
         }
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  手动输入处理
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /**
+     * 处理从 MainActivity 提交的手动输入取件码
+     * 直接保存到数据库并展示到灵动岛
+     */
+    private fun handleManualInput(intent: Intent) {
+        val code = intent.getStringExtra(EXTRA_MANUAL_CODE) ?: return
+        val typeOrdinal = intent.getIntExtra(EXTRA_MANUAL_TYPE, CodeType.OTHER.ordinal)
+        val rawText = intent.getStringExtra(EXTRA_MANUAL_RAW) ?: code
+
+        val codeType = CodeType.values().getOrElse(typeOrdinal) { CodeType.OTHER }
+        val record = CodeRecord(
+            code = code.trim(),
+            codeType = codeType,
+            rawText = rawText
+        )
+        onCodeFound(record)
+    }
+
     private fun onCodeFound(record: CodeRecord) {
         scope.launch { repository.insert(record) }
         // 展示超级岛通知
-        // IslandNotificationManager 内部完成：版本检测 → miui.focus.param 注入 → 降级处理
         islandManager.showCode(record)
     }
 
@@ -229,28 +300,50 @@ class PickCodeService : Service() {
     //  常驻通知（前台服务保活）
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+    /**
+     * 构建常驻前台通知
+     *
+     * 通知交互设计：
+     * - 点击通知主体 → 打开 MainActivity（同时携带触发识别的标记）
+     * - "立即识别"按钮 → 发送 ACTION_TRIGGER（如果已有权限则直接截图）
+     * - "停止服务"按钮 → 停止服务
+     *
+     * 设计原因：
+     * - Android 对通知 PendingIntent 的限制：getService 在某些场景可能无法正确分发
+     * - 打开 MainActivity 是最可靠的交互方式
+     * - MainActivity 的 onResume 会检查是否需要触发识别
+     */
     private fun buildPersistentNotification(): Notification {
-        val tapIntent = PendingIntent.getService(
+        // 点击通知主体 → 打开 MainActivity
+        val mainIntent = PendingIntent.getActivity(
             this, 0,
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra("from_notification", true)
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // "立即识别" 按钮 → 触发截屏（发送 ACTION_TRIGGER）
+        val triggerIntent = PendingIntent.getService(
+            this, 1,
             Intent(this, PickCodeService::class.java).apply { action = ACTION_TRIGGER },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+
+        // "停止服务" 按钮
         val stopIntent = PendingIntent.getService(
-            this, 1,
+            this, 2,
             Intent(this, PickCodeService::class.java).apply { action = ACTION_STOP },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        val mainIntent = PendingIntent.getActivity(
-            this, 2,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+
         return NotificationCompat.Builder(this, PickCodeApp.CHANNEL_PERSISTENT)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("码速达 已就绪")
-            .setContentText("点击立即识别屏幕取件码")
-            .setContentIntent(tapIntent)
-            .addAction(0, "去主界面", mainIntent)
+            .setContentText("点击打开主界面，或用下方按钮识别")
+            .setContentIntent(mainIntent)
+            .addAction(0, "\uD83D\uDCEE 立即识别", triggerIntent)
             .addAction(0, "停止服务", stopIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)

@@ -1,25 +1,40 @@
 package com.pickcode.app.ui.activity
 
 import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
+import android.text.InputType
 import android.view.Menu
 import android.view.MenuItem
 import android.service.quicksettings.TileService
+import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
+import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.textfield.TextInputEditText
 import com.pickcode.app.R
+import com.pickcode.app.data.model.CodeRecord
+import com.pickcode.app.data.model.CodeType
 import com.pickcode.app.databinding.ActivityMainBinding
+import com.pickcode.app.ocr.CodeExtractor
 import com.pickcode.app.overlay.IslandNotificationManager
 import com.pickcode.app.service.PickCodeService
 import com.pickcode.app.tile.PickCodeTileService
@@ -32,14 +47,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MainViewModel by viewModels()
     private lateinit var adapter: CodeRecordAdapter
+    private val extractor = CodeExtractor()
 
     // Android 13+ 通知权限申请
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                // 权限通过 → 启动常驻服务
                 startPickCodeService()
-                // 先显示 Tile 引导（AlertDialog），确认后再显示超级岛提示
                 showTileGuideIfNeeded()
             } else {
                 Snackbar.make(
@@ -54,6 +68,22 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+    /**
+     * 监听 Service 发出的"需要截屏权限"广播
+     *
+     * 当 Service 收到 ACTION_TRIGGER 但没有 MediaProjection 权限时，
+     * 会发送 ACTION_NEED_PERMISSION 广播，MainActivity 收到后启动 PermissionActivity
+     */
+    private val permissionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == PickCodeService.ACTION_NEED_PERMISSION) {
+                startActivity(Intent(this@MainActivity, PermissionActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                })
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -62,14 +92,52 @@ class MainActivity : AppCompatActivity() {
 
         setupRecyclerView()
         setupFab()
+        setupManualInputButton()
         observeRecords()
 
-        // 请求 Tile 进入 listening 状态（确保 Tile 出现在 QS 编辑面板中）
+        // 请求 Tile 进入 listening 状态
         requestTileListeningState()
 
-        // 先申请权限，权限通过后再启动服务和显示引导
+        // 注册广播接收器（监听 Service 的权限请求）
+        registerReceiver(
+            permissionReceiver,
+            IntentFilter(PickCodeService.ACTION_NEED_PERMISSION),
+            RECEIVER_NOT_EXPORTED
+        )
+
+        // 检查是否从通知栏点击进入（需要触发识别）
+        if (intent?.getBooleanExtra("from_notification", false) == true) {
+            // 从通知栏进入，延迟一点等 UI 渲染完成后再触发
+            binding.root.postDelayed({ triggerCaptureFromMain() }, 300)
+        }
+
+        // 申请权限 → 启动服务
         checkAndRequestPermissionsAndStartService()
     }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // singleTop 模式：从通知栏再次点击时触发
+        if (intent?.getBooleanExtra("from_notification", false) == true) {
+            triggerCaptureFromMain()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 每次回到前台刷新列表（可能有新的识别记录）
+        // StateFlow + observeRecords 已自动处理
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(permissionReceiver)
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  初始化 UI 组件
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     private fun setupRecyclerView() {
         adapter = CodeRecordAdapter(
@@ -92,9 +160,21 @@ class MainActivity : AppCompatActivity() {
         }).attachToRecyclerView(binding.recyclerView)
     }
 
+    /**
+     * FAB（悬浮按钮）：一键截屏识别
+     */
     private fun setupFab() {
         binding.fabCapture.setOnClickListener {
-            PickCodeService.triggerCapture(this)
+            triggerCaptureFromMain()
+        }
+    }
+
+    /**
+     * 手动导入按钮（FAB 上方的小按钮）
+     */
+    private fun setupManualInputButton() {
+        binding.btnManualInput.setOnClickListener {
+            showManualInputDialog()
         }
     }
 
@@ -108,21 +188,184 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  截屏识别触发
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     /**
-     * 权限检查与申请 → 通过后启动常驻服务
+     * 从主界面触发截屏识别
      *
-     * 新方案（小米超级岛）：
-     * - ✅ 不再需要 SYSTEM_ALERT_WINDOW（悬浮窗权限）
-     * - 仅需 POST_NOTIFICATIONS（Android 13+ 通知权限）
-     * - 小米设备额外需要：在设置中手动开启「焦点通知」权限
-     *
-     * ✅ 权限通过后会启动 PickCodeService 前台服务，提供：
-     *   1. 通知栏常驻通知（点击可触发识别）
-     *   2. Quick Settings Tile 可用
+     * 直接启动 PermissionActivity（透明授权页），
+     * 用户选择屏幕后由 PermissionActivity 回传结果给 Service
      */
+    private fun triggerCaptureFromMain() {
+        startActivity(
+            Intent(this, PermissionActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+        )
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  手动导入功能
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    /**
+     * 显示手动导入对话框
+     *
+     * 提供两种模式：
+     * 1. 粘贴短信模式 — 粘贴整条取件码短信，自动解析提取
+     * 2. 手动填写模式 — 手动输入验证码 + 选择类型
+     */
+    private fun showManualInputDialog() {
+        // 使用自定义布局的对话框
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 24, 48, 0)
+        }
+
+        // 标题提示
+        val titleView = TextView(this).apply {
+            text = "请选择输入方式"
+            setTextSize(14f)
+            setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
+            setPadding(0, 0, 0, 16)
+        }
+        layout.addView(titleView)
+
+        // 输入方式切换
+        var isPasteMode = true // 默认粘贴模式
+
+        val modeSwitch = RadioGroup(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            val rbPaste = RadioButton(context).apply {
+                text = "\uD83D\uDCEB 粘贴短信"
+                isChecked = true
+                setTypeface(null, Typeface.BOLD)
+                setPadding(24, 0, 24, 0)
+            }
+            val rbManual = RadioButton(context).apply {
+                text = "\u270F\uFE0F 手动填写"
+                setPadding(24, 0, 24, 0)
+            }
+            addView(rbPaste)
+            addView(rbManual)
+            setOnCheckedChangeListener { _, checkedId ->
+                isPasteMode = (checkedId == rbPaste.id)
+                inputEdit.hint = if (isPasteMode)
+                    "在此粘贴整条取件码短信..."
+                else
+                    "输入取件码（如：6-8位数字/字母）"
+
+                typeSelector.visibility = if (isPasteMode) android.view.View.GONE else android.view.View.VISIBLE
+            }
+        }
+        layout.addView(modeSwitch)
+
+        // 输入框
+        val inputEdit = TextInputEditText(this).apply {
+            hint = "在此粘贴整条取件码短信...\n例如：【丰巢】您有一个包裹，取件码：5-8-3-2"
+            isSingleLine = false
+            maxLines = 5
+            minLines = 3
+            setInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE)
+            setPadding(16, 24, 16, 8)
+        }
+        layout.addView(inputEdit)
+
+        // 类型选择（手动模式下显示）
+        val typeSelector = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            visibility = android.view.View.GONE
+            setPadding(0, 16, 0, 0)
+
+            val rg = RadioGroup(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                CodeType.values().forEach { type ->
+                    addView(RadioButton(context).apply {
+                        text = "${type.emoji} ${type.label}"
+                        tag = type.ordinal
+                        if (type == CodeType.EXPRESS) isChecked = true
+                        setPadding(12, 0, 12, 0)
+                        textSize = 13f
+                    })
+                }
+            }
+            addView(rg)
+        }
+        layout.addView(typeSelector)
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("\uD83D\uDCCE 手动输入取件码")
+            .setView(layout)
+            .setPositiveButton("提交到灵动岛") { _, _ ->
+                val inputText = inputEdit.text.toString().trim()
+                if (inputText.isBlank()) {
+                    Snackbar.make(binding.root, "内容不能为空", Snackbar.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+
+                submitManualInput(inputText, isPasteMode, typeSelector)
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    /**
+     * 提交手动输入的内容
+     *
+     * @param inputText 用户输入的文本
+     * @param isPasteMode true=粘贴短信模式（自动解析），false=手动填写模式
+     * @param typeSelector 类型选择器容器（手动模式下读取选中的类型）
+     */
+    private fun submitManualInput(inputText: String, isPasteMode: Boolean, typeSelector: LinearLayout) {
+        if (isPasteMode) {
+            // 粘贴短信模式：用 CodeExtractor 自动解析
+            val record = extractor.parseCode(inputText)
+            if (record != null) {
+                // 解析成功 → 提交到 Service 展示到灵动岛
+                PickCodeService.submitManualCode(
+                    this, record.code, record.codeType.ordinal, record.rawText
+                )
+                Snackbar.make(
+                    binding.root,
+                    "✅ 识别成功！${record.codeType.emoji} ${record.code}",
+                    Snackbar.LENGTH_LONG
+                ).show()
+            } else {
+                // 无法自动解析 → 提示用户切换到手动填写
+                MaterialAlertDialogBuilder(this)
+                    .setMessage("未能自动识别出取件码。\n\n可能原因：\n• 短信格式不标准\n• 不包含\"取件码\"等关键词\n\n是否切换到手动填写模式？")
+                    .setPositiveButton("手动填写") { _, _ ->
+                        showManualInputDialog()
+                    }
+                    .setNegativeButton("取消", null)
+                    .show()
+            }
+        } else {
+            // 手动填写模式：直接使用用户输入作为 code
+            val rg = typeSelector.getChildAt(0) as RadioGroup
+            val checkedId = rg.checkedRadioButtonId
+            val selectedOrdinal = findViewById<RadioButton>(checkedId)?.tag as? Int ?: CodeType.OTHER.ordinal
+
+            PickCodeService.submitManualCode(
+                this, inputText, selectedOrdinal, "(手动输入)"
+            )
+            val typeLabel = CodeType.values().getOrElse(selectedOrdinal) { CodeType.OTHER }
+            Snackbar.make(
+                binding.root,
+                "✅ 已添加！${typeLabel.emoji} $inputText",
+                Snackbar.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  权限 & 服务 & 引导
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     private fun checkAndRequestPermissionsAndStartService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ 需要动态申请通知权限
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED
             ) {
@@ -131,32 +374,57 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // 权限已满足 → 启动服务 + 显示引导（先 Tile 引导，确认后超级岛提示）
         startPickCodeService()
         showTileGuideIfNeeded()
     }
 
-    /**
-     * 提示用户当前设备的灵动岛支持情况
-     *
-     * ╔════════════════════════════════════════════════════╗
-     * ║  小米澎湃OS3   → 超级岛（引导开启焦点通知权限）       ║
-     * ║  OPPO ColorOS  → 流体云（提示已支持，无需额外权限）   ║
-     * ║  vivo OriginOS → 原子岛（提示需申请白名单）          ║
-     * ║  其他设备      → 无需提示                           ║
-     * ╚════════════════════════════════════════════════════╝
-     */
+    private fun requestTileListeningState() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            try {
+                TileService.requestListeningState(
+                    this,
+                    ComponentName(this, PickCodeTileService::class.java)
+                )
+            } catch (_: Exception) { /* 忽略 */ }
+        }
+    }
+
+    private fun showTileGuideIfNeeded() {
+        val prefs = getSharedPreferences("pickcode_prefs", MODE_PRIVATE)
+        if (prefs.getBoolean("tile_guide_shown", false)) return
+
+        binding.root.postDelayed({
+            AlertDialog.Builder(this)
+                .setTitle("\uD83D\uDE80 添加快捷开关")
+                .setMessage(
+                    "添加「码速达」快捷开关后，可在任意界面一键识别验证码！\n\n" +
+                    "操作步骤：\n" +
+                    "1. 从屏幕顶部向下滑出「通知栏」\n" +
+                    "2. 点击右下角「编辑」按钮（⚙\uFE0F 铅笔图标）\n" +
+                    "3. 找到「码速达」图标\n" +
+                    "4. 按住拖动到上方快捷区域\n\n" +
+                    "\uD83D\uDCA1 添加成功后，下拉通知栏点击「码速达」即可立即识别！" +
+                    "\n\n\uD83D\uDCDD 也支持在主页手动输入取件码哦~"
+                )
+                .setPositiveButton("我知道了") { _, _ ->
+                    prefs.edit().putBoolean("tile_guide_shown", true).apply()
+                    showIslandSupportHint()
+                }
+                .setCancelable(false)
+                .show()
+        }, 500)
+    }
+
     private fun showIslandSupportHint() {
         val description = IslandNotificationManager.getIslandTypeDescription(this)
         val protocolVersion = IslandNotificationManager.getFocusProtocolVersion(this)
         val islandProperty  = IslandNotificationManager.isSupportIslandProperty()
 
         when {
-            // ── 小米超级岛 ──
             protocolVersion >= 3 && islandProperty -> {
                 Snackbar.make(
                     binding.root,
-                    "🏝️ 检测到小米超级岛，建议在设置 → 通知 → 焦点通知 中开启权限",
+                    "\uD83C\uDFA3 检测到小米超级岛，建议在设置 → 通知 → 焦点通知 中开启权限",
                     Snackbar.LENGTH_LONG
                 ).setAction("去设置") {
                     try {
@@ -170,93 +438,24 @@ class MainActivity : AppCompatActivity() {
                     }
                 }.show()
             }
-            // ── OPPO 流体云 ──
-            android.os.Build.MANUFACTURER?.lowercase() == "oppo" ||
-            android.os.Build.MANUFACTURER?.lowercase() == "oneplus" -> {
+            Build.MANUFACTURER?.lowercase() in listOf("oppo", "oneplus") -> {
                 Snackbar.make(
                     binding.root,
-                    "🌊 检测到 OPPO 流体云，码速达已为您自动适配",
+                    "\uD83C\uDF0A 检测到 OPPO 流体云，码速达已为您自动适配",
                     Snackbar.LENGTH_SHORT
                 ).show()
             }
-            // ── vivo 原子岛 ──
-            android.os.Build.MANUFACTURER?.lowercase() == "vivo" -> {
+            Build.MANUFACTURER?.lowercase() == "vivo" -> {
                 Snackbar.make(
                     binding.root,
-                    "⚛️ 检测到 vivo 原子岛（需开发者白名单，当前使用标准通知）",
+                    "\u269B\uFE0F 检测到 vivo 原子岛（需开发者白名单，当前使用标准通知）",
                     Snackbar.LENGTH_SHORT
                 ).show()
             }
-            // ── 其他设备：无需提示 ──
-            else -> { /* 使用标准通知横幅，不打扰用户 */ }
+            else -> { /* 无需提示 */ }
         }
     }
 
-    /**
-     * 请求 Tile 进入 listening 状态
-     *
-     * 调用 TileService.requestListeningState() 后：
-     * 1. 系统会绑定 PickCodeTileService
-     * 2. 触发 onStartListening() 更新 tile 状态（label/subtitle）
-     * 3. 确保 Tile 出现在 Quick Settings 编辑面板中
-     *
-     * 必须在 API 25+ (Android N) 才能使用
-     */
-    private fun requestTileListeningState() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            try {
-                TileService.requestListeningState(
-                    this,
-                    ComponentName(this, PickCodeTileService::class.java)
-                )
-            } catch (_: Exception) {
-                // 某些 ROM 可能不支持，忽略
-            }
-        }
-    }
-
-    /**
-     * 首次使用引导：教用户添加 Quick Settings Tile（快捷开关）
-     *
-     * 引导条件（仅首次）：
-     * - SharedPreferences 中未记录 "tile_guide_shown"
-     *
-     * 使用 AlertDialog 而非 Snackbar（Snackbar 会自动消失，用户容易错过）
-     */
-    private fun showTileGuideIfNeeded() {
-        val prefs = getSharedPreferences("pickcode_prefs", MODE_PRIVATE)
-        if (prefs.getBoolean("tile_guide_shown", false)) return
-
-        // 延迟 500ms 显示（等权限弹窗关闭后）
-        binding.root.postDelayed({
-            AlertDialog.Builder(this)
-                .setTitle("🚀 添加快捷开关")
-                .setMessage(
-                    "添加「码速达」快捷开关后，可在任意界面一键识别验证码！\n\n" +
-                    "操作步骤：\n" +
-                    "1. 从屏幕顶部向下滑出「通知栏」\n" +
-                    "2. 点击右下角「编辑」按钮（⚡ 铅笔图标）\n" +
-                    "3. 找到「码速达」图标\n" +
-                    "4. 按住拖动到上方快捷区域\n\n" +
-                    "💡 添加成功后，下拉通知栏点击「码速达」即可立即识别！"
-                )
-                .setPositiveButton("我知道了") { _, _ ->
-                    // 标记已显示过引导
-                    prefs.edit().putBoolean("tile_guide_shown", true).apply()
-                    // 引导关闭后再显示超级岛提示（避免同时弹出多个对话框）
-                    showIslandSupportHint()
-                }
-                .setCancelable(false)  // 必须确认，不可忽略
-                .show()
-        }, 500)
-    }
-
-    /**
-     * 安全启动 PickCodeService（前台服务）
-     *
-     * 使用 try-catch 保护，防止 Android 14+ FGS 限制导致崩溃
-     * 同时延迟 500ms 启动，确保 Activity 完全进入 resumed 状态
-     */
     private fun startPickCodeService() {
         binding.root.postDelayed({
             try {
@@ -267,7 +466,6 @@ class MainActivity : AppCompatActivity() {
                     startService(i)
                 }
             } catch (e: Exception) {
-                // 极端情况：FGS 启动失败，不崩溃，用户仍可用 FAB 和 Tile
                 e.printStackTrace()
                 Snackbar.make(
                     binding.root,
@@ -277,6 +475,10 @@ class MainActivity : AppCompatActivity() {
             }
         }, 500)
     }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  菜单
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.menu_main, menu)

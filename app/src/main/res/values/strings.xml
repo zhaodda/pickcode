@@ -15,6 +15,10 @@
     <string name="notification_title">码速达 已就绪</string>
     <string name="notification_text">点击立即识别屏幕取件码</string>
     <string name="notification_stop">停止服务</string>
+    <string name="manual_input_title">手动输入取件码</string>
+    <string name="manual_input_paste_hint">在此粘贴整条取件码短信…\n例如：【丰巢】您有一个包裹，取件码：5-8-3-2</string>
+    <string name="manual_input_manual_hint">输入取件码（如：6–8位数字/字母）</string>
+    <string name="btn_manual_input">\uD83D\uDCDD 手动输入</string>
 
     <!-- Settings -->
     <string name="pref_general_title">通用</string>
