@@ -35,4 +35,8 @@
     <!-- 模式切换按钮文字 -->
     <color name="text_mode_switch_selected">#534AB7</color>
     <color name="text_mode_switch_normal">#8E8B98</color>
+
+    <!-- 已取件状态 -->
+    <color name="text_picked_up">#9E9E9E</color>
+    <color name="bg_picked_up">#F5F5F5</color>
 </resources>

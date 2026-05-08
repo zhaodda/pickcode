@@ -10,6 +10,8 @@ class CodeRepository(context: Context) {
     private val dao = PickCodeDatabase.getInstance(context).codeRecordDao()
 
     val allRecords: Flow<List<CodeRecord>> = dao.getAllRecords()
+    val notPickedUpRecords: Flow<List<CodeRecord>> = dao.getNotPickedUpRecords()
+    val pickedUpRecords: Flow<List<CodeRecord>> = dao.getPickedUpRecords()
 
     suspend fun insert(record: CodeRecord): Long {
         val id = dao.insert(record)

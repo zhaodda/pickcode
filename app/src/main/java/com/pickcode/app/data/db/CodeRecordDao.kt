@@ -34,4 +34,16 @@ interface CodeRecordDao {
 
     @Query("SELECT COUNT(*) FROM code_records")
     suspend fun getCount(): Int
+
+    /** 获取已取件记录（按时间倒序） */
+    @Query("SELECT * FROM code_records WHERE isPickedUp = 1 ORDER BY timestamp DESC LIMIT 50")
+    fun getPickedUpRecords(): Flow<List<CodeRecord>>
+
+    /** 获取未取件记录（按时间倒序） */
+    @Query("SELECT * FROM code_records WHERE isPickedUp = 0 ORDER BY timestamp DESC LIMIT 50")
+    fun getNotPickedUpRecords(): Flow<List<CodeRecord>>
+
+    /** 切换取件状态 */
+    @Query("UPDATE code_records SET isPickedUp = :status WHERE id = :recordId")
+    suspend fun updatePickedUpStatus(recordId: Long, status: Boolean)
 }

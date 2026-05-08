@@ -15,7 +15,8 @@ data class CodeRecord(
     val rawText: String = "",      // OCR 原始文本片段
     val address: String = "",      // 驿站地址（快递类型时填充）
     val timestamp: Long = System.currentTimeMillis(),
-    val isFavorite: Boolean = false
+    val isFavorite: Boolean = false,
+    val isPickedUp: Boolean = false
 )
 
 enum class CodeType(val label: String, val emoji: String) {

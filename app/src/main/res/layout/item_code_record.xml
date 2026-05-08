@@ -78,9 +78,8 @@
             android:tint="@color/selector_star"
             android:contentDescription="收藏"
             app:layout_constraintEnd_toStartOf="@id/btnDelete"
-            app:layout_constraintBottom_toBottomOf="@id/tvCode"
-            app:layout_constraintTop_toBottomOf="@id/tvTime" />
-
+            app:layout_constraintTop_toBottomOf="@id/tvTime"
+            app:layout_constraintBottom_toBottomOf="@id/tvCode" />
         <!-- 删除按钮 -->
         <ImageButton
             android:id="@+id/btnDelete"
@@ -91,8 +90,23 @@
             android:tint="@color/text_hint"
             android:contentDescription="删除"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintBottom_toBottomOf="@id/tvCode"
-            app:layout_constraintTop_toBottomOf="@id/tvTime" />
+            app:layout_constraintTop_toBottomOf="@id/tvTime"
+            app:layout_constraintBottom_toBottomOf="@id/tvCode" />
+
+        <!-- 已取件标签（isPickedUp=true 时显示） -->
+        <TextView
+            android:id="@+id/tvPickedUp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="3dp"
+            android:text="已取件"
+            android:textColor="@color/white"
+            android:textSize="11sp"
+            android:background="@drawable/bg_tag_picked_up"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

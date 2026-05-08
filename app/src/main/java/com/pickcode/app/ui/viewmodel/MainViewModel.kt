@@ -17,12 +17,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val records: StateFlow<List<CodeRecord>> = repository.allRecords
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    /** 未取件记录 */
+    val notPickedUpRecords: StateFlow<List<CodeRecord>> = repository.notPickedUpRecords
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    /** 已取件记录 */
+    val pickedUpRecords: StateFlow<List<CodeRecord>> = repository.pickedUpRecords
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
     fun delete(record: CodeRecord) = viewModelScope.launch {
         repository.delete(record)
     }
 
     fun toggleFavorite(record: CodeRecord) = viewModelScope.launch {
         repository.update(record.copy(isFavorite = !record.isFavorite))
+    }
+
+    /** 切换取件状态 */
+    fun togglePickedUp(record: CodeRecord) = viewModelScope.launch {
+        repository.update(record.copy(isPickedUp = !record.isPickedUp))
     }
 
     fun clearAll() = viewModelScope.launch {

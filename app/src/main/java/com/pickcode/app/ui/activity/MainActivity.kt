@@ -21,6 +21,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.google.android.material.tabs.TabLayout
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -48,6 +49,9 @@ class MainActivity : AppCompatActivity() {
     private val viewModel: MainViewModel by viewModels()
     private lateinit var adapter: CodeRecordAdapter
     private val extractor = CodeExtractor()
+
+    /** 当前选中的 Tab（0=未取件, 1=已取件） */
+    private var currentTab = 0
 
     /** 将 dp 值转换为 px */
     private fun Float.toPx(): Int = (this * resources.displayMetrics.density).toInt()
@@ -81,6 +85,7 @@ class MainActivity : AppCompatActivity() {
         // 初始化运行日志
         AppLog.init(this)
 
+        setupTabLayout()
         setupRecyclerView()
         setupManualInputButton()
         observeRecords()
@@ -111,23 +116,49 @@ class MainActivity : AppCompatActivity() {
     //  初始化 UI 组件
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+    private fun setupTabLayout() {
+        binding.tabLayout.apply {
+            addTab(newTab().setText("未取件 (0)"))
+            addTab(newTab().setText("已取件 (0)"))
+            setOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+                override fun onTabSelected(tab: TabLayout.Tab?) {
+                    tab?.let { currentTab = it.position }
+                }
+                override fun onTabUnselected(tab: TabLayout.Tab?) {}
+                override fun onTabReselected(tab: TabLayout.Tab?) {}
+            })
+        }
+    }
+
     private fun setupRecyclerView() {
         adapter = CodeRecordAdapter(
             onFavoriteClick = { viewModel.toggleFavorite(it) },
-            onDeleteClick   = { viewModel.delete(it) }
+            onDeleteClick   = { viewModel.delete(it) },
+            onPickedUpClick = { record ->
+                viewModel.togglePickedUp(record)
+                if (!record.isPickedUp)
+                    Snackbar.make(binding.root, "✅ 已标记为已取件", Snackbar.LENGTH_SHORT).show()
+                else
+                    Snackbar.make(binding.root, "已恢复为未取件", Snackbar.LENGTH_SHORT).show()
+            }
         )
         binding.recyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             this.adapter  = this@MainActivity.adapter
         }
 
-        // 左滑删除
+        // 左滑删除（仅未取件页有效）
         ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
             override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder, t: RecyclerView.ViewHolder) = false
             override fun onSwiped(vh: RecyclerView.ViewHolder, direction: Int) {
                 val record = adapter.currentList[vh.adapterPosition]
                 viewModel.delete(record)
                 Snackbar.make(binding.root, "已删除 ${record.code}", Snackbar.LENGTH_SHORT).show()
+            }
+
+            override fun getSwipeDirs(recyclerView: RecyclerView, holder: RecyclerView.ViewHolder): Int {
+                // 已取件的记录不允许左滑删除
+                return super.getSwipeDirs(recyclerView, holder)
             }
         }).attachToRecyclerView(binding.recyclerView)
     }
@@ -142,13 +173,37 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeRecords() {
+        // 观察未取件记录
         lifecycleScope.launch {
-            viewModel.records.collect { list ->
-                adapter.submitList(list)
-                binding.layoutEmpty.visibility =
-                    if (list.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+            viewModel.notPickedUpRecords.collect { list ->
+                if (currentTab == 0) {
+                    adapter.submitList(list)
+                    binding.layoutEmpty.visibility =
+                        if (list.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+                }
+                // 更新 Tab 数量
+                updateTabText(0, "未取件", list.size)
             }
         }
+
+        // 观察已取件记录
+        lifecycleScope.launch {
+            viewModel.pickedUpRecords.collect { list ->
+                if (currentTab == 1) {
+                    adapter.submitList(list)
+                    binding.layoutEmpty.visibility =
+                        if (list.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+                }
+                // 更新 Tab 数量
+                updateTabText(1, "已取件", list.size)
+            }
+        }
+    }
+
+    /** 更新指定 Tab 的文字（含数量） */
+    private fun updateTabText(index: Int, label: String, count: Int) {
+        val tab = binding.tabLayout.getTabAt(index) ?: return
+        tab.text = "$label ($count)"
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

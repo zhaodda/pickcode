@@ -9,7 +9,7 @@ import com.pickcode.app.data.model.CodeType
 
 @Database(
     entities = [CodeRecord::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -27,6 +27,13 @@ abstract class PickCodeDatabase : RoomDatabase() {
             }
         }
 
+        /** v2→v3：新增 isPickedUp 字段 */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE code_records ADD COLUMN isPickedUp INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun getInstance(context: Context): PickCodeDatabase =
             INSTANCE ?: synchronized(this) {
                 val builder: RoomDatabase.Builder<PickCodeDatabase> = Room.databaseBuilder(
@@ -34,7 +41,7 @@ abstract class PickCodeDatabase : RoomDatabase() {
                     PickCodeDatabase::class.java,
                     "pickcode_history.db"
                 )
-                builder.addMigrations(MIGRATION_1_2)
+                builder.addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 val db = builder.build()
                 INSTANCE = db
                 db
