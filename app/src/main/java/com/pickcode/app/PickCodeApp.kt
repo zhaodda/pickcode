@@ -25,7 +25,7 @@ class PickCodeApp : Application() {
             nm.createNotificationChannel(
                 NotificationChannel(
                     CHANNEL_PERSISTENT,
-                    "码速达运行中",
+                    "码住运行中",
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
                     description = "保持服务运行的常驻通知，不会弹出或发声"

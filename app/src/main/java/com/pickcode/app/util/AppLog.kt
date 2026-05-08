@@ -9,7 +9,7 @@ import java.util.Locale
 import java.util.concurrent.Executors
 
 /**
- * 码速达运行日志管理器（单例）
+ * 码住运行日志管理器（单例）
  *
  * 功能：
  * - 记录所有关键操作事件（触发入口、授权状态、截图结果、OCR 结果、错误信息等）
@@ -219,7 +219,7 @@ object AppLog {
     fun exportAsText(): String {
         val entries = readEntries(limit = 2000)
         return buildString {
-            appendLine("=== 码速达运行日志 ===")
+            appendLine("=== 码住运行日志 ===")
             appendLine("导出时间: ${dateFormat.format(Date())}")
             appendLine("共 ${entries.size} 条记录")
             appendLine("=".repeat(50))

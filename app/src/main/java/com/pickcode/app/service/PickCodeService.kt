@@ -62,7 +62,7 @@ class PickCodeService : Service() {
 
             // 无障碍服务不可用或未识别到 → 提示用户
             if (!PickCodeAccessibilityService.isAvailable) {
-                AppLog.w("PickCodeService", "⚠️ 无障碍服务未连接，请确认已开启「码速达」无障碍服务", from)
+                AppLog.w("PickCodeService", "⚠️ 无障碍服务未连接，请确认已开启「码住」无障碍服务", from)
             } else {
                 // notification/tile 触发时返回 null 是正常的（异步执行中）
                 if (from == "notification" || from == "tile") {
@@ -191,7 +191,7 @@ class PickCodeService : Service() {
 
         return NotificationCompat.Builder(this, PickCodeApp.CHANNEL_PERSISTENT)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("码速达 已就绪")
+            .setContentTitle("码住 已就绪")
             .setContentText("点击打开主界面，或用下方按钮立即识别")
             .setContentIntent(mainIntent)
             .addAction(0, "\uD83D\uDCEE 立即识别", captureIntent)

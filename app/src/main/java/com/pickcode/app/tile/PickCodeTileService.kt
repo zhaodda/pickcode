@@ -53,7 +53,7 @@ class PickCodeTileService : TileService() {
         super.onStartListening()
         qsTile?.apply {
             state = Tile.STATE_INACTIVE
-            label = "码速达"
+            label = "码住"
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 subtitle = "点击识别验证码"
             }

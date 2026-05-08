@@ -138,7 +138,7 @@ class LogViewerActivity : AppCompatActivity() {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)
-            putExtra(Intent.EXTRA_SUBJECT, "码速达运行日志")
+            putExtra(Intent.EXTRA_SUBJECT, "码住运行日志")
         }
         startActivity(Intent.createChooser(intent, "分享运行日志"))
     }

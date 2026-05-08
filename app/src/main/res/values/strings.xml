@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App -->
-    <string name="app_name">码速达</string>
-    <string name="tile_label">码速达识别</string>
+    <string name="app_name">码住</string>
+    <string name="tile_label">码住识别</string>
 
     <!-- UI -->
     <string name="action_settings">设置</string>
@@ -12,7 +12,7 @@
     <string name="empty_subtitle">点击下方按钮或通知栏/快捷开关来识别</string>
 
     <!-- Notifications -->
-    <string name="notification_title">码速达 已就绪</string>
+    <string name="notification_title">码住 已就绪</string>
     <string name="notification_text">点击立即识别屏幕取件码</string>
     <string name="notification_stop">停止服务</string>
     <string name="manual_input_title">手动输入取件码</string>
@@ -23,7 +23,7 @@
     <!-- Settings -->
     <string name="pref_general_title">通用</string>
     <string name="pref_auto_start_title">开机自启</string>
-    <string name="pref_auto_start_summary">设备重启后自动启动码速达服务</string>
+    <string name="pref_auto_start_summary">设备重启后自动启动码住服务</string>
     <string name="pref_auto_copy_title">识别后自动复制</string>
     <string name="pref_auto_copy_summary">提取到验证码后立即写入剪贴板</string>
     <string name="pref_overlay_title">悬浮窗设置</string>
@@ -34,5 +34,5 @@
     <string name="pref_version_title">版本</string>
 
     <!-- Accessibility Service -->
-    <string name="accessibility_service_description">码速达无障碍服务\n\n用于截取屏幕内容并识别取件码/验证码。\n\n• 读取屏幕截图\n• 自动识别快递取件码、外卖取餐码等验证码\n\n不会收集任何个人信息，所有处理均在本地完成。</string>
+    <string name="accessibility_service_description">码住无障碍服务\n\n用于截取屏幕内容并识别取件码/验证码。\n\n• 读取屏幕截图\n• 自动识别快递取件码、外卖取餐码等验证码\n\n不会收集任何个人信息，所有处理均在本地完成。</string>
 </resources>

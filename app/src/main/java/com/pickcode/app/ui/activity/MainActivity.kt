@@ -377,13 +377,13 @@ class MainActivity : AppCompatActivity() {
             AlertDialog.Builder(this)
                 .setTitle("\uD83D\uDE80 添加快捷开关")
                 .setMessage(
-                    "添加「码速达」快捷开关后，可在任意界面一键识别验证码！\n\n" +
+                    "添加「码住」快捷开关后，可在任意界面一键识别验证码！\n\n" +
                     "操作步骤：\n" +
                     "1. 从屏幕顶部向下滑出「通知栏」\n" +
                     "2. 点击右下角「编辑」按钮（⚙\uFE0F 铅笔图标）\n" +
-                    "3. 找到「码速达」图标\n" +
+                    "3. 找到「码住」图标\n" +
                     "4. 按住拖动到上方快捷区域\n\n" +
-                    "\uD83D\uDCA1 添加成功后，下拉通知栏点击「码速达」即可立即识别！" +
+                    "\uD83D\uDCA1 添加成功后，下拉通知栏点击「码住」即可立即识别！" +
                     "\n\n\uD83D\uDCDD 也支持在主页手动输入取件码哦~"
                 )
                 .setPositiveButton("我知道了") { _, _ ->
@@ -410,14 +410,14 @@ class MainActivity : AppCompatActivity() {
             AlertDialog.Builder(this)
                 .setTitle("\uD83C\uDF1F 开启无障碍服务")
                 .setMessage(
-                    "码速达需要「无障碍服务」权限来实现一键截图识别。\n\n" +
+                    "码住需要「无障碍服务」权限来实现一键截图识别。\n\n" +
                     "开启后可以：\n" +
                     "• \u270F\uFE0F 点击即识别（无需每次选择录屏范围）\n" +
                     "• \uD83D\uDCBB 通知栏按钮直接可用\n" +
                     "• \uD83D\uDDD3 Tile 快捷开关稳定响应\n\n" +
                     "\u26A1 开启步骤：\n" +
                     "1. 点击下方「去设置」\n" +
-                    "2. 找到「码速达」\n" +
+                    "2. 找到「码住」\n" +
                     "3. 开启开关"
                 )
                 .setPositiveButton("去设置") { _, _ ->

@@ -10,7 +10,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:text="码速达"
+        android:text="码住"
         android:textColor="#E8E4FF"
         android:textSize="14sp" />
 </FrameLayout>

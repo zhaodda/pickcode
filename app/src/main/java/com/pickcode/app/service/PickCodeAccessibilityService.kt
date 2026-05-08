@@ -19,7 +19,7 @@ import com.pickcode.app.util.AppLog
 import kotlinx.coroutines.*
 
 /**
- * 码速达无障碍服务（AccessibilityService）
+ * 码住无障碍服务（AccessibilityService）
  *
  * ══ 核心能力：AccessibilityNodeInfo 节点树文字提取 ═══
  *
@@ -232,7 +232,7 @@ class PickCodeAccessibilityService : AccessibilityService() {
      * 实际执行节点树遍历 + 正则匹配
      *
      * 包含面板残留检测：如果提取到的文字看起来像是通知栏/QS 面板的内容
-     * （包含"码速达"、"立即识别"、"设置"、"蓝牙"、"WiFi"等特征关键词），
+     * （包含"码住"、"立即识别"、"设置"、"蓝牙"、"WiFi"等特征关键词），
      * 说明面板还没完全收起，自动再执行一次 GLOBAL_ACTION_BACK 并延迟重试。
      */
     private fun performExtract(from: String, retryCount: Int = 0): CodeRecord? {
@@ -306,8 +306,8 @@ class PickCodeAccessibilityService : AccessibilityService() {
      */
     private fun looksLikePanelText(text: String): Boolean {
         val panelKeywords = arrayOf(
-            // === 码速达自身通知栏文字（最精确的标识）===
-            "码速达",          // 通知栏标题
+            // === 码住自身通知栏文字（最精确的标识）===
+            "码住",          // 通知栏标题
             "已就绪",          // 通知栏内容
             "立即识别",        // 通知栏按钮
             "停止服务",        // 通知栏按钮
