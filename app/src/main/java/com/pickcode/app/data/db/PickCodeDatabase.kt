@@ -9,7 +9,7 @@ import com.pickcode.app.data.model.CodeType
 
 @Database(
     entities = [CodeRecord::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -20,13 +20,24 @@ abstract class PickCodeDatabase : RoomDatabase() {
     companion object {
         @Volatile private var INSTANCE: PickCodeDatabase? = null
 
+        /** v1→v2：新增 address 字段 */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE code_records ADD COLUMN address TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun getInstance(context: Context): PickCodeDatabase =
             INSTANCE ?: synchronized(this) {
-                Room.databaseBuilder(
+                val builder: RoomDatabase.Builder<PickCodeDatabase> = Room.databaseBuilder(
                     context.applicationContext,
                     PickCodeDatabase::class.java,
                     "pickcode_history.db"
-                ).build().also { INSTANCE = it }
+                )
+                builder.addMigrations(MIGRATION_1_2)
+                val db = builder.build()
+                INSTANCE = db
+                db
             }
     }
 }

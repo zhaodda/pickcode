@@ -27,7 +27,7 @@ class PickCodeTileService : TileService() {
         private const val TAG = "PickCodeTileService"
 
     /** QS 面板收起后等待多久再提取文字（毫秒） */
-    private const val PANEL_COLLAPSE_DELAY_MS = 800L
+    private const val PANEL_COLLAPSE_DELAY_MS = 350L
 
     /**
      * Tile 磁贴点击后的时间线设计：
@@ -39,9 +39,9 @@ class PickCodeTileService : TileService() {
      * - 表现为：识别完成后当前 App 自动返回上一页（用户反馈的问题）
      * - 澎湃OS中通知栏和QS是独立窗口，BACK的行为不可预测
      *
-     * ══ 现行方案（v1.4.1）：纯延迟(800ms) + 残留重试 ══
-     * 1. T=0:   startActivityAndCollapse() — 官方API关闭QS面板（~300ms动画）
-     * 2. T=800: extractFromScreenText("tile") — 提取屏幕文字
+     * ══ 现行方案（v2.0.0）：短延迟(350ms) + 残留重试 ══
+     * 1. T=0:   startActivityAndCollapse() — 官方API关闭QS面板（~200-300ms动画）
+     * 2. T=350: extractFromScreenText("tile") — 提取屏幕文字
      *    如果 performExtract() 检测到面板残留（looksLikePanelText），
      *    才会执行 BACK 并自动重试（这是有条件的，不会误触）
      */
@@ -84,8 +84,8 @@ class PickCodeTileService : TileService() {
         }
 
         // 3. 延迟执行文字提取
-        //    纯延迟策略：只依赖 startActivityAndCollapse() 关闭 QS 面板，
-        //    等待足够时间（1200ms）让面板动画完成 + 节点树刷新。
+        //    短延迟策略（350ms）：只依赖 startActivityAndCollapse() 关闭 QS 面板，
+        //    等待面板动画完成（~200-300ms）后立即提取。
         //    不再执行无条件的 GLOBAL_ACTION_BACK 兜底（会导致当前App被误返回）。
         //    如果面板确实没关好，performExtract() 的 looksLikePanelText() 残留检测会自动处理重试。
         handler.postDelayed({

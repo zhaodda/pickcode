@@ -69,42 +69,28 @@
 
     </LinearLayout>
 
-    <!-- 底部按钮区域（FAB + 手动导入） -->
+    <!-- 底部按钮区域（仅手动输入，居中） -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="24dp">
+        android:layout_marginBottom="28dp">
 
-        <!-- 手动导入按钮 -->
+        <!-- 手动输入按钮（主操作） -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnManualInput"
-            style="@style/Widget.Material3.Button.OutlinedButton.Icon"
+            style="@style/Widget.Material3.Button"
             android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:layout_marginEnd="12dp"
-            android:minWidth="48dp"
-            android:paddingHorizontal="14dp"
-            android:text="✏️ 手动输入"
-            android:textColor="@color/accent_primary"
-            android:textSize="13sp"
-            app:cornerRadius="24dp"
-            app:iconTint="@color/accent_primary"
-            app:strokeColor="@color/accent_primary"
-            app:strokeWidth="1dp" />
-
-        <!-- 悬浮识别按钮 -->
-        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-            android:id="@+id/fabCapture"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="识别验证码"
-            app:icon="@drawable/ic_scan"
-            app:backgroundTint="@color/accent_primary"
+            android:layout_height="52dp"
+            android:minWidth="180dp"
+            android:paddingHorizontal="28dp"
+            android:text="✏️ 手动输入取件码"
             android:textColor="@color/white"
-            app:iconTint="@color/white" />
+            android:textSize="15sp"
+            app:cornerRadius="26dp"
+            app:backgroundTint="@color/accent_primary" />
 
     </LinearLayout>
 

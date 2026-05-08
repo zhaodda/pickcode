@@ -30,4 +30,9 @@
 
     <!-- 日志相关 -->
     <color name="divider">#1A000000</color>
+    <color name="bg_secondary">#F8F7FC</color>
+
+    <!-- 模式切换按钮文字 -->
+    <color name="text_mode_switch_selected">#534AB7</color>
+    <color name="text_mode_switch_normal">#8E8B98</color>
 </resources>

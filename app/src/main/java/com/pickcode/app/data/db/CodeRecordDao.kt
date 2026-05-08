@@ -13,6 +13,10 @@ interface CodeRecordDao {
     @Query("SELECT * FROM code_records ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLatestRecord(): CodeRecord?
 
+    /** 获取最近 N 条记录（用于小组件列表展示） */
+    @Query("SELECT * FROM code_records ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getRecentRecords(limit: Int = 20): List<CodeRecord>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(record: CodeRecord): Long
 

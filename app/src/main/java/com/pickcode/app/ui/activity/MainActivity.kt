@@ -33,8 +33,6 @@ import com.pickcode.app.data.model.CodeRecord
 import com.pickcode.app.data.model.CodeType
 import com.pickcode.app.databinding.ActivityMainBinding
 import com.pickcode.app.ocr.CodeExtractor
-import com.pickcode.app.overlay.IslandNotificationManager
-import com.pickcode.app.service.PickCodeAccessibilityService
 import com.pickcode.app.service.PickCodeService
 import com.pickcode.app.ui.activity.LogViewerActivity
 import com.pickcode.app.tile.PickCodeTileService
@@ -50,6 +48,10 @@ class MainActivity : AppCompatActivity() {
     private val viewModel: MainViewModel by viewModels()
     private lateinit var adapter: CodeRecordAdapter
     private val extractor = CodeExtractor()
+
+    /** 将 dp 值转换为 px */
+    private fun Float.toPx(): Int = (this * resources.displayMetrics.density).toInt()
+    private fun Int.toPx(): Int = (this * resources.displayMetrics.density).toInt()
 
     // Android 13+ 通知权限申请
     private val notificationPermissionLauncher =
@@ -80,7 +82,6 @@ class MainActivity : AppCompatActivity() {
         AppLog.init(this)
 
         setupRecyclerView()
-        setupFab()
         setupManualInputButton()
         observeRecords()
 
@@ -132,16 +133,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * FAB（悬浮按钮）：一键截屏识别
-     */
-    private fun setupFab() {
-        binding.fabCapture.setOnClickListener {
-            triggerCaptureFromMain()
-        }
-    }
-
-    /**
-     * 手动导入按钮（FAB 上方的小按钮）
+     * 手动输入按钮（底部主操作）
      */
     private fun setupManualInputButton() {
         binding.btnManualInput.setOnClickListener {
@@ -159,38 +151,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  截屏识别触发
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-    /**
-     * 从主界面触发识别（纯无障碍节点树文字提取）
-     *
-     * v1.3.0: 唯一方案 — AccessibilityNodeInfo 节点树遍历，无需截图、无需OCR
-     */
-    private fun triggerCaptureFromMain() {
-        AppLog.i("MainActivity", "用户点击了 FAB 识别按钮", "fab")
-
-        val result = PickCodeAccessibilityService.extractFromScreenText()
-        if (result != null) {
-            AppLog.i("MainActivity", "✅ 识别成功: ${result.code}", "fab")
-            return
-        }
-
-        // 未识别到 → 提示
-        if (!PickCodeAccessibilityService.isAvailable) {
-            AppLog.w("MainActivity", "⚠️ 无障碍服务未连接，请确认已开启", "fab")
-        } else {
-            AppLog.w("MainActivity", "❌ 当前屏幕未找到取件码", "fab")
-        }
-    }
-
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     //  手动导入功能
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     /**
-     * 显示手动导入对话框
+     * 显示手动输入对话框
      *
      * 提供两种模式：
      * 1. 粘贴短信模式 — 粘贴整条取件码短信，自动解析提取
@@ -198,70 +164,100 @@ class MainActivity : AppCompatActivity() {
      */
     private fun showManualInputDialog() {
         // 使用自定义布局的对话框
-        val layout = LinearLayout(this).apply {
+        val context = this
+        val layout = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 24, 48, 0)
+            setPadding(40, 20, 40, 8)
         }
 
-        // 标题提示
-        val titleView = TextView(this).apply {
-            text = "请选择输入方式"
-            setTextSize(14f)
-            setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
-            setPadding(0, 0, 0, 16)
-        }
-        layout.addView(titleView)
-
-        // 输入框（先声明，后面初始化）
+        // ── 模式切换（Segmented 样式）──
+        var isPasteMode = true // 默认粘贴模式
         lateinit var inputEdit: TextInputEditText
-        // 类型选择（先声明，后面初始化）
         lateinit var typeSelector: LinearLayout
 
-        // 输入方式切换
-        var isPasteMode = true // 默认粘贴模式
-
-        val modeSwitch = RadioGroup(this).apply {
+        val modeContainer = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
+            background = ContextCompat.getDrawable(context, R.drawable.bg_mode_switch)
+            setPadding(4f.toPx(), 4f.toPx(), 4f.toPx(), 4f.toPx())
+
             val rbPaste = RadioButton(context).apply {
-                text = "\uD83D\uDCEB 粘贴短信"
+                text = "📨 粘贴短信"
                 isChecked = true
+                setButtonDrawable(android.R.color.transparent)
+                gravity = android.view.Gravity.CENTER
+                setPadding(0, 10f.toPx(), 0, 10f.toPx())
+                textSize = 14f
                 setTypeface(null, Typeface.BOLD)
-                setPadding(24, 0, 24, 0)
+                setTextColor(ContextCompat.getColorStateList(context, R.color.text_mode_switch))
+                minWidth = 120
             }
             val rbManual = RadioButton(context).apply {
-                text = "\u270F\uFE0F 手动填写"
-                setPadding(24, 0, 24, 0)
+                text = "✏️ 手动填写"
+                setButtonDrawable(android.R.color.transparent)
+                gravity = android.view.Gravity.CENTER
+                setPadding(0, 10f.toPx(), 0, 10f.toPx())
+                textSize = 14f
+                setTextColor(ContextCompat.getColorStateList(context, R.color.text_mode_switch))
+                minWidth = 120
             }
-            addView(rbPaste)
-            addView(rbManual)
-            setOnCheckedChangeListener { _, checkedId ->
-                isPasteMode = (checkedId == rbPaste.id)
-                inputEdit.hint = if (isPasteMode)
-                    "在此粘贴整条取件码短信..."
-                else
-                    "输入取件码（如：6-8位数字/字母）"
-
-                typeSelector.visibility = if (isPasteMode) android.view.View.GONE else android.view.View.VISIBLE
+            val modeGroup = RadioGroup(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(rbPaste)
+                addView(rbManual)
+                setOnCheckedChangeListener { _, checkedId ->
+                    isPasteMode = (checkedId == rbPaste.id)
+                    inputEdit.hint = if (isPasteMode)
+                        "在此粘贴整条取件码短信..."
+                    else
+                        "输入取件码（如：6-8位数字/字母）"
+                    typeSelector.visibility = if (isPasteMode) android.view.View.GONE else android.view.View.VISIBLE
+                }
             }
+            addView(modeGroup)
         }
-        layout.addView(modeSwitch)
+        layout.addView(modeContainer)
 
-        // 输入框
-        inputEdit = TextInputEditText(this).apply {
-            hint = "在此粘贴整条取件码短信...\n例如：【丰巢】您有一个包裹，取件码：5-8-3-2"
-            isSingleLine = false
-            maxLines = 5
-            minLines = 3
-            setInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE)
-            setPadding(16, 24, 16, 8)
+        // ── 输入框区域（带圆角背景）──
+        val inputContainer = com.google.android.material.card.MaterialCardView(context).apply {
+            useCompatPadding = false
+            cardElevation = 0f
+            radius = 16f
+            strokeColor = ContextCompat.getColor(context, R.color.divider)
+            strokeWidth = 1
+            setContentPadding(16f.toPx(), 20f.toPx(), 16f.toPx(), 12f.toPx())
+            setCardBackgroundColor(ContextCompat.getColor(context, R.color.bg_secondary))
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = 20f.toPx() }
+
+            inputEdit = TextInputEditText(context).apply {
+                hint = "在此粘贴整条取件码短信...\n例如：【丰巢】您有一个包裹，取件码：5-8-3-2"
+                isSingleLine = false
+                maxLines = 5
+                minLines = 3
+                setInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE)
+                background = null
+                textSize = 15f
+                setLineSpacing(6f, 1f)
+            }
+            addView(inputEdit)
         }
-        layout.addView(inputEdit)
+        layout.addView(inputContainer)
 
-        // 类型选择（手动模式下显示）
-        typeSelector = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+        // ── 类型选择（手动模式下显示）──
+        typeSelector = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
             visibility = android.view.View.GONE
-            setPadding(0, 16, 0, 0)
+            setPadding(4f.toPx(), 18f.toPx(), 4f.toPx(), 0)
+
+            val labelTv = TextView(context).apply {
+                text = "选择类型"
+                textSize = 13f
+                setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
+                setPadding(0, 0, 0, 10f.toPx())
+            }
+            addView(labelTv)
 
             val rg = RadioGroup(context).apply {
                 orientation = LinearLayout.HORIZONTAL
@@ -270,7 +266,8 @@ class MainActivity : AppCompatActivity() {
                         text = "${type.emoji} ${type.label}"
                         tag = type.ordinal
                         if (type == CodeType.EXPRESS) isChecked = true
-                        setPadding(12, 0, 12, 0)
+                        setPadding(16f.toPx(), 8f.toPx(), 16f.toPx(), 8f.toPx())
+                        buttonTintList = ContextCompat.getColorStateList(context, R.color.accent_primary)
                         textSize = 13f
                     })
                 }
@@ -280,15 +277,14 @@ class MainActivity : AppCompatActivity() {
         layout.addView(typeSelector)
 
         MaterialAlertDialogBuilder(this)
-            .setTitle("\uD83D\uDCCE 手动输入取件码")
+            .setTitle("📮 手动输入取件码")
             .setView(layout)
-            .setPositiveButton("提交") { _, _ ->
+            .setPositiveButton("确认提交") { _, _ ->
                 val inputText = inputEdit.text.toString().trim()
                 if (inputText.isBlank()) {
                     Snackbar.make(binding.root, "内容不能为空", Snackbar.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
-
                 submitManualInput(inputText, isPasteMode, typeSelector)
             }
             .setNegativeButton("取消", null)
@@ -406,7 +402,6 @@ class MainActivity : AppCompatActivity() {
     private fun showA11yGuideIfNeeded() {
         val prefs = getSharedPreferences("pickcode_prefs", MODE_PRIVATE)
         if (prefs.getBoolean("a11y_guide_shown", false)) {
-            showIslandSupportHint()
             return
         }
 
@@ -435,35 +430,10 @@ class MainActivity : AppCompatActivity() {
                 }
                 .setNegativeButton("稍后") { _, _ ->
                     prefs.edit().putBoolean("a11y_guide_shown", true).apply()
-                    showIslandSupportHint()
                 }
                 .setCancelable(false)
                 .show()
         }, 800)
-    }
-
-    private fun showIslandSupportHint() {
-        val protocolVersion = IslandNotificationManager.getFocusProtocolVersion(this)
-        val islandProperty  = IslandNotificationManager.isSupportIslandProperty()
-
-        if (protocolVersion >= 3 && islandProperty) {
-            Snackbar.make(
-                binding.root,
-                "\uD83C\uDFA3 检测到小米超级岛，建议在设置 → 通知 → 焦点通知 中开启权限",
-                Snackbar.LENGTH_LONG
-            ).setAction("去设置") {
-                try {
-                    startActivity(Intent("miui.intent.action.NOTIFICATION_FOCUS_SETTINGS").apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    })
-                } catch (_: Exception) {
-                    startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                        putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
-                    })
-                }
-            }.show()
-        }
-        // 非超级岛设备无需额外提示
     }
 
     private fun startPickCodeService() {

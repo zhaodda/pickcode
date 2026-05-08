@@ -43,6 +43,15 @@ class CodeRecordAdapter(
             tvCode.text = record.code
             tvType.text = "${record.codeType.emoji} ${record.codeType.label}"
             tvTime.text = SDF.format(Date(record.timestamp))
+
+            // 驿站地址：仅快递类型且有地址时显示
+            if (record.address.isNotEmpty()) {
+                tvAddress.text = "📍 ${record.address}"
+                tvAddress.visibility = android.view.View.VISIBLE
+            } else {
+                tvAddress.visibility = android.view.View.GONE
+            }
+
             btnFavorite.isSelected = record.isFavorite
             btnFavorite.setOnClickListener { onFavoriteClick(record) }
             btnDelete.setOnClickListener { onDeleteClick(record) }

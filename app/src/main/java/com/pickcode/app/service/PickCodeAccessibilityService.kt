@@ -198,10 +198,10 @@ class PickCodeAccessibilityService : AccessibilityService() {
         // 并延迟 ~1000ms 后才调用 extractFromScreenText("tile")，此时 QS 面板已完全收起。
         // 如果在这里再执行 GLOBAL_ACTION_BACK 反而会多按一次返回键，可能意外退出当前 App。
         if (from == "notification") {
-            AppLog.i(TAG, "[$from] 模拟返回键关闭通知栏面板，800ms后提取屏幕文字", from)
+            AppLog.i(TAG, "[$from] 模拟返回键关闭通知栏面板，350ms后提取屏幕文字", from)
             val collapsed = performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
             Log.d(TAG, "GLOBAL_ACTION_BACK result=$collapsed")
-            handler.postDelayed({ performExtract(from) }, 800)
+            handler.postDelayed({ performExtract(from) }, 350)
             return null
         }
 
@@ -267,7 +267,7 @@ class PickCodeAccessibilityService : AccessibilityService() {
                 // 再按一次返回键关闭残留面板
                 performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
                 // 递归重试，延迟更长一点
-                handler.postDelayed({ performExtract(from, retryCount + 1) }, 800)
+                handler.postDelayed({ performExtract(from, retryCount + 1) }, 400)
                 return null
             }
 

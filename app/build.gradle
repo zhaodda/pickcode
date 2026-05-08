@@ -83,6 +83,12 @@ dependencies {
     // Preferences
     implementation 'androidx.preference:preference-ktx:1.2.1'
 
+    // Jetpack Glance AppWidget — 已弃用，改用原生 RemoteViews
+    // Glance 经过5轮修复仍无法显示（Compose→RemoteViews 翻译层静默崩溃）
+    // 改为原生 AppWidgetProvider + XML 布局方案
+    // implementation 'androidx.glance:glance-appwidget:1.1.0'
+    // implementation 'androidx.glance:glance-material3:1.1.0'
+
     // Test
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

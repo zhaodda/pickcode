@@ -203,7 +203,7 @@ class PickCodeService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
-        islandManager.dismiss()
+        islandManager.dismissAll()
         super.onDestroy()
     }
 }

@@ -147,6 +147,7 @@ object AppLog {
             ?.sortedByDescending { it.name }
             ?: emptyList()
 
+        // 按文件从新到旧遍历，每文件内从旧到新读
         for (file in files) {
             try {
                 file.forEachLine { line ->
@@ -160,7 +161,8 @@ object AppLog {
             if (entries.size >= limit) break
         }
 
-        return entries
+        // 整体反转：同一文件内是追加顺序（旧→新），但我们要最新在前
+        return entries.reversed()
     }
 
     private fun parseLine(line: String): Entry? {
@@ -221,6 +223,7 @@ object AppLog {
             appendLine("导出时间: ${dateFormat.format(Date())}")
             appendLine("共 ${entries.size} 条记录")
             appendLine("=".repeat(50))
+            // entries 已是最新在前，导出时反转回时间正序
             entries.reversed().forEach { entry ->
                 appendLine(formatEntry(entry))
             }

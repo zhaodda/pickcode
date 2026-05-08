@@ -4,14 +4,12 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
-import com.pickcode.app.overlay.IslandNotificationManager
 
 class PickCodeApp : Application() {
 
     companion object {
         const val CHANNEL_PERSISTENT = "pickcode_persistent"
         const val ACTION_CODE_UPDATED = "com.pickcode.CODE_UPDATED"
-        // CHANNEL_ISLAND 由 IslandNotificationManager 自行创建（IMPORTANCE_HIGH，保障超级岛弹出）
     }
 
     override fun onCreate() {
@@ -37,9 +35,7 @@ class PickCodeApp : Application() {
                 }
             )
 
-            // 超级岛通知频道由 IslandNotificationManager 在初始化时自动创建
-            // Channel ID: IslandNotificationManager.CHANNEL_ISLAND = "pickcode_island"
-            // Importance: IMPORTANCE_HIGH（确保在非小米设备上也能弹出横幅）
+            // 取件码通知频道由 IslandNotificationManager 在初始化时自动创建（IMPORTANCE_HIGH）
         }
     }
 }

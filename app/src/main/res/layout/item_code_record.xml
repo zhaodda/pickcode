@@ -53,6 +53,21 @@
             app:layout_constraintEnd_toStartOf="@id/btnFavorite"
             app:layout_constraintTop_toBottomOf="@id/tvType" />
 
+        <!-- 驿站地址（快递类型时显示） -->
+        <TextView
+            android:id="@+id/tvAddress"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textSize="13sp"
+            android:textColor="@color/text_secondary"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnFavorite"
+            app:layout_constraintTop_toBottomOf="@id/tvCode" />
+
         <!-- 收藏按钮 -->
         <ImageButton
             android:id="@+id/btnFavorite"

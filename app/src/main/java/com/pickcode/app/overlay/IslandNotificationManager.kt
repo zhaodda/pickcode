@@ -1,79 +1,158 @@
 package com.pickcode.app.overlay
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
-import android.util.Log
+import android.content.Intent
+import android.graphics.Color.parseColor
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import com.pickcode.app.R
 import com.pickcode.app.data.model.CodeRecord
+import com.pickcode.app.data.model.CodeType
+import com.pickcode.app.ui.activity.MainActivity
+import com.pickcode.app.util.AppLog
 
 /**
- * 超级岛通知管理器（统一入口）
+ * 取件码通知管理器（标准 Android 通知）
  *
- * 专注小米澎湃OS超级岛，自动降级为标准通知横幅。
- *
- * ┌─────────────────────────┬──────────────────────────────────┐
- * │ 设备条件                │ 实现方式                         │
- * ├─────────────────────────┼──────────────────────────────────┤
- * │ 澎湃OS3+ (protocol>=3) │ MiuiIslandManager 超级岛胶囊     │
- * │ 澎湃OS1/2 (protocol1-2)│ MiuiIslandManager 焦点通知横幅   │
- * │ 小米设备(无焦点通知)    │ FallbackIslandManager 标准横幅   │
- * │ 非小米设备              │ FallbackIslandManager 标准横幅   │
- * └─────────────────────────┴──────────────────────────────────┘
- *
- * ══ 使用方式 ══
- * ```kotlin
- * val islandManager = IslandNotificationManager(context)
- * islandManager.showCode(record)
- * islandManager.dismiss()
- * ```
- *
- * ══ 权限要求 ══
- * - 需要 POST_NOTIFICATIONS（Android 13+ 通知权限）
- * - 小米设备推荐开启"焦点通知"权限以获得最佳体验
+ * 每次识别到取件码发送一条独立的高优先级横幅通知，
+ * 支持多条通知同时存在，点击"复制"后关闭单条。
  */
-class IslandNotificationManager(context: Context) {
+class IslandNotificationManager(private val context: Context) {
 
     companion object {
-        const val ISLAND_NOTIFICATION_ID = IslandManagerBase.ISLAND_NOTIFICATION_ID
-        const val CHANNEL_ISLAND         = IslandManagerBase.CHANNEL_ISLAND
-        const val ACTION_COPY_CODE       = IslandManagerBase.ACTION_COPY_CODE
-        const val EXTRA_CODE             = IslandManagerBase.EXTRA_CODE
+        /** 取件码通知 Channel */
+        const val CHANNEL_CODE = "pickcode_code"
 
-        fun getFocusProtocolVersion(context: Context) =
-            MiuiIslandManager.getFocusProtocolVersion(context)
+        /** 复制验证码广播 Action */
+        const val ACTION_COPY_CODE = "com.pickcode.ACTION_COPY_CODE"
 
-        fun isIslandSupported(context: Context) =
-            MiuiIslandManager.isIslandSupported(context)
+        /** 广播 Extra：验证码内容 */
+        const val EXTRA_CODE = "extra_code"
 
-        fun isSupportIslandProperty() =
-            MiuiIslandManager.isSupportIslandProperty()
+        /** 广播 Extra：通知 ID（用于复制后精确取消） */
+        const val EXTRA_NOTIFICATION_ID = "extra_notification_id"
 
-        fun hasFocusPermission(context: Context) =
-            MiuiIslandManager.hasFocusPermission(context)
-
-        /** 获取当前设备的超级岛类型描述文本 */
-        fun getIslandTypeDescription(context: Context): String =
-            IslandManagerFactory.getIslandTypeDescription(context)
+        /** 通知 ID 起始值（与常驻通知 1001 错开） */
+        private const val BASE_NOTIFICATION_ID = 3000
     }
 
-    private val delegate: IslandManagerBase = IslandManagerFactory.create(context).also {
-        Log.i("IslandNotificationManager", "初始化完成: delegate=${it.managerName}")
-    }
+    private val notificationManager =
+        context.getSystemService(NotificationManager::class.java)
 
-    val managerName: String get() = delegate.managerName
+    private var nextId = BASE_NOTIFICATION_ID
+
+    init { createNotificationChannel() }
+
+    val managerName: String = "标准通知栏"
+
+    /** 按 CodeType 返回高亮颜色 */
+    private fun highlightColor(codeType: CodeType): Int = when (codeType) {
+        CodeType.EXPRESS -> parseColor("#534AB7")  // 快递：紫
+        CodeType.FOOD     -> parseColor("#FF6B35")  // 餐饮：橙
+        CodeType.PARKING  -> parseColor("#00BCD4")  // 停车：青
+        CodeType.OTHER    -> parseColor("#4CAF50")  // 其他：绿
+    }
 
     /**
-     * 展示识别到的验证码到超级岛/通知栏
+     * 展示识别到的取件码（发一条新通知，ID 自动递增）
      */
     fun showCode(record: CodeRecord) {
-        Log.i("IslandNotificationManager", "showCode → ${delegate.managerName}")
-        delegate.showCode(record)
+        val notificationId = nextId++
+        val typeLabel = "${record.codeType.emoji} ${record.codeType.label}"
+
+        val mainIntent = PendingIntent.getActivity(
+            context, 0,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        // 携带 notificationId，复制后可精确关闭本条通知
+        val copyIntent = PendingIntent.getBroadcast(
+            context, notificationId,
+            Intent(ACTION_COPY_CODE).apply {
+                putExtra(EXTRA_CODE, record.code)
+                putExtra(EXTRA_NOTIFICATION_ID, notificationId)
+                `package` = context.packageName
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // 构建通知内容：有地址时显示地址 + 取件码
+        val contentText = if (record.address.isNotEmpty()) {
+            "取件码：${record.code}  📍${record.address}"
+        } else {
+            "取件码：${record.code}"
+        }
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_CODE)
+            .setContentTitle(typeLabel)
+            .setContentText(contentText)
+            .setSubText(record.code)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(highlightColor(record.codeType))
+            .setColorized(true)
+            .setContentIntent(mainIntent)
+            .setAutoCancel(false)          // 不自动消失，等用户复制或手动关闭
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .addAction(0, "\uD83D\uDCEE 复制", copyIntent)
+            .build()
+
+        notificationManager.notify(notificationId, notification)
+        AppLog.i("NotifMgr", "✅ 发送取件码通知 [id=$notificationId] ${typeLabel}: ${record.code}" +
+                if (record.address.isNotEmpty()) " @ ${record.address}" else "")
     }
 
     /** 展示"未找到验证码"提示 */
-    fun showNoResult() = delegate.showNoResult()
+    fun showNoResult() {
+        val n = NotificationCompat.Builder(context, CHANNEL_CODE)
+            .setContentTitle("未找到取件码")
+            .setContentText("屏幕上未识别到有效验证码，请重试")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+        notificationManager.notify(nextId++, n)
+    }
 
     /** 展示识别错误提示 */
-    fun showError() = delegate.showError()
+    fun showError() {
+        val n = NotificationCompat.Builder(context, CHANNEL_CODE)
+            .setContentTitle("识别失败")
+            .setContentText("识别出现错误，请重试")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .build()
+        notificationManager.notify(nextId++, n)
+    }
 
-    /** 取消通知 */
-    fun dismiss() = delegate.dismiss()
+    /** 关闭指定 ID 的通知 */
+    fun dismiss(notificationId: Int) {
+        notificationManager.cancel(notificationId)
+    }
+
+    /** 关闭所有取件码通知（保留常驻前台通知） */
+    fun dismissAll() {
+        for (id in BASE_NOTIFICATION_ID until nextId) {
+            notificationManager.cancel(id)
+        }
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                CHANNEL_CODE, "取件码提醒", NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "识别到的取件码、取餐码等验证码"
+                setShowBadge(true)
+                enableLights(false)
+                enableVibration(false)
+                setSound(null, null)
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+    }
 }
