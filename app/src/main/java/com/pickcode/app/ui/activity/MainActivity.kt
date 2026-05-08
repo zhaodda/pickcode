@@ -477,10 +477,13 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.action_clear -> {
-                AlertDialog.Builder(this)
+                MaterialAlertDialogBuilder(this)
                     .setTitle("清空历史")
-                    .setMessage("确定要删除全部识别记录吗？")
-                    .setPositiveButton("确定") { _, _ -> viewModel.clearAll() }
+                    .setMessage("确定要删除全部识别记录吗？此操作不可撤销。")
+                    .setPositiveButton("确认删除") { _, _ ->
+                        viewModel.clearAll()
+                        Snackbar.make(binding.root, "已清空所有历史记录", Snackbar.LENGTH_SHORT).show()
+                    }
                     .setNegativeButton("取消", null)
                     .show()
                 true
