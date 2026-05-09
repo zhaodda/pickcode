@@ -8,9 +8,6 @@ import android.content.pm.PackageManager
 import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
-import android.text.InputType
-import android.view.Menu
-import android.view.MenuItem
 import android.service.quicksettings.TileService
 import android.widget.LinearLayout
 import android.widget.RadioButton
@@ -21,23 +18,18 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.google.android.material.tabs.TabLayout
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.ItemTouchHelper
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
-import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
 import com.pickcode.app.R
-import com.pickcode.app.data.model.CodeRecord
 import com.pickcode.app.data.model.CodeType
 import com.pickcode.app.databinding.ActivityMainBinding
 import com.pickcode.app.ocr.CodeExtractor
 import com.pickcode.app.service.PickCodeService
-import com.pickcode.app.ui.activity.LogViewerActivity
-import com.pickcode.app.tile.PickCodeTileService
-import com.pickcode.app.ui.adapter.CodeRecordAdapter
+import com.pickcode.app.ui.adapter.MainPagerAdapter
 import com.pickcode.app.ui.viewmodel.MainViewModel
 import com.pickcode.app.util.AppLog
 import kotlinx.coroutines.launch
@@ -47,7 +39,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MainViewModel by viewModels()
-    private lateinit var adapter: CodeRecordAdapter
     private val extractor = CodeExtractor()
 
     /** 将 dp 值转换为 px */
@@ -82,10 +73,11 @@ class MainActivity : AppCompatActivity() {
         // 初始化运行日志
         AppLog.init(this)
 
-        setupTabLayout()
-        setupRecyclerView()
+        setupViewPager()
         setupManualInputButton()
-        observeRecords()
+
+        // 观察列表数量，更新 Tab 文字
+        observeRecordCounts()
 
         // 请求 Tile 进入 listening 状态
         requestTileListeningState()
@@ -99,94 +91,49 @@ class MainActivity : AppCompatActivity() {
         setIntent(intent)
     }
 
-    override fun onResume() {
-        super.onResume()
-        // 每次回到前台刷新列表（可能有新的识别记录）
-        // StateFlow + observeRecords 已自动处理
-    }
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    //  ViewPager2 + TabLayout
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    override fun onDestroy() {
-        super.onDestroy()
+    private fun setupViewPager() {
+        val pager = binding.viewPager
+        val tabLayout = binding.tabLayout
+
+        pager.adapter = MainPagerAdapter(this)
+
+        // TabLayout + ViewPager2 联动（左右滑动切换 Tab）
+        TabLayoutMediator(tabLayout, pager) { tab, position ->
+            // 文字由 observeRecordCounts() 动态更新，这里先设初始值
+            tab.text = if (position == 0) "未取件" else "已取件"
+        }.attach()
+
+        // Tab 点击时切换到对应页（ViewPager2 会自动处理，这里可选）
+        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                tab?.let { pager.currentItem = it.position }
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
+
+        // ViewPager2 页面切换时同步 Tab 选中状态
+        pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                tabLayout.getTabAt(position)?.select()
+            }
+        })
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    //  初始化 UI 组件
+    //  观察列表数量，更新 Tab 文字
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    private fun setupTabLayout() {
-        binding.tabLayout.apply {
-            addTab(newTab().setText("未取件 (0)"))
-            addTab(newTab().setText("已取件 (0)"))
-            setOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
-                override fun onTabSelected(tab: TabLayout.Tab?) {
-                    tab?.let { viewModel.setCurrentTab(it.position) }
-                }
-                override fun onTabUnselected(tab: TabLayout.Tab?) {}
-                override fun onTabReselected(tab: TabLayout.Tab?) {}
-            })
-        }
-    }
-
-    private fun setupRecyclerView() {
-        adapter = CodeRecordAdapter(
-            onFavoriteClick = { viewModel.toggleFavorite(it) },
-            onDeleteClick   = { viewModel.delete(it) },
-            onPickedUpClick = { record ->
-                viewModel.togglePickedUp(record)
-                if (!record.isPickedUp)
-                    Snackbar.make(binding.root, "✅ 已标记为已取件", Snackbar.LENGTH_SHORT).show()
-                else
-                    Snackbar.make(binding.root, "已恢复为未取件", Snackbar.LENGTH_SHORT).show()
-            }
-        )
-        binding.recyclerView.apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            this.adapter  = this@MainActivity.adapter
-        }
-
-        // 左滑删除（仅未取件页有效）
-        ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
-            override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder, t: RecyclerView.ViewHolder) = false
-            override fun onSwiped(vh: RecyclerView.ViewHolder, direction: Int) {
-                val record = adapter.currentList[vh.adapterPosition]
-                viewModel.delete(record)
-                Snackbar.make(binding.root, "已删除 ${record.code}", Snackbar.LENGTH_SHORT).show()
-            }
-
-            override fun getSwipeDirs(recyclerView: RecyclerView, holder: RecyclerView.ViewHolder): Int {
-                // 已取件的记录不允许左滑删除
-                return super.getSwipeDirs(recyclerView, holder)
-            }
-        }).attachToRecyclerView(binding.recyclerView)
-    }
-
-    /**
-     * 手动输入按钮（底部主操作）
-     */
-    private fun setupManualInputButton() {
-        binding.btnManualInput.setOnClickListener {
-            showManualInputDialog()
-        }
-    }
-
-    private fun observeRecords() {
-        // 观察当前 Tab 对应的列表（由 ViewModel.currentRecords 自动切换）
-        lifecycleScope.launch {
-            viewModel.currentRecords.collect { list ->
-                adapter.submitList(list)
-                binding.layoutEmpty.visibility =
-                    if (list.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
-            }
-        }
-
-        // 观察未取件数量，更新 Tab 文字
+    private fun observeRecordCounts() {
         lifecycleScope.launch {
             viewModel.notPickedUpRecords.collect { list ->
                 updateTabText(0, "未取件", list.size)
             }
         }
-
-        // 观察已取件数量，更新 Tab 文字
         lifecycleScope.launch {
             viewModel.pickedUpRecords.collect { list ->
                 updateTabText(1, "已取件", list.size)
@@ -211,6 +158,12 @@ class MainActivity : AppCompatActivity() {
      * 1. 粘贴短信模式 — 粘贴整条取件码短信，自动解析提取
      * 2. 手动填写模式 — 手动输入验证码 + 选择类型
      */
+    private fun setupManualInputButton() {
+        binding.btnManualInput.setOnClickListener {
+            showManualInputDialog()
+        }
+    }
+
     private fun showManualInputDialog() {
         // 使用自定义布局的对话框
         val context = this
@@ -221,7 +174,7 @@ class MainActivity : AppCompatActivity() {
 
         // ── 模式切换（Segmented 样式）──
         var isPasteMode = true // 默认粘贴模式
-        lateinit var inputEdit: TextInputEditText
+        lateinit var inputEdit: android.widget.EditText
         lateinit var typeSelector: LinearLayout
 
         val modeContainer = LinearLayout(context).apply {
@@ -230,7 +183,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(4f.toPx(), 4f.toPx(), 4f.toPx(), 4f.toPx())
 
             val rbPaste = RadioButton(context).apply {
-                text = "📨 粘贴短信"
+                text = "📋 粘贴短信"
                 isChecked = true
                 setButtonDrawable(android.R.color.transparent)
                 gravity = android.view.Gravity.CENTER
@@ -253,12 +206,12 @@ class MainActivity : AppCompatActivity() {
                 orientation = LinearLayout.HORIZONTAL
                 addView(rbPaste)
                 addView(rbManual)
-                setOnCheckedChangeListener { _, checkedId ->
-                    isPasteMode = (checkedId == rbPaste.id)
+                setOnCheckedChangeListener { _, _ ->
+                    isPasteMode = rbPaste.isChecked
                     inputEdit.hint = if (isPasteMode)
                         "在此粘贴整条取件码短信..."
                     else
-                        "输入取件码（如：6-8位数字/字母）"
+                        "输入取件码（如：6-8-3-2）"
                     typeSelector.visibility = if (isPasteMode) android.view.View.GONE else android.view.View.VISIBLE
                 }
             }
@@ -280,12 +233,12 @@ class MainActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { topMargin = 20f.toPx() }
 
-            inputEdit = TextInputEditText(context).apply {
+            inputEdit = android.widget.EditText(context).apply {
                 hint = "在此粘贴整条取件码短信...\n例如：【丰巢】您有一个包裹，取件码：5-8-3-2"
                 isSingleLine = false
                 maxLines = 5
                 minLines = 3
-                setInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE)
+                setInputType(android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE)
                 background = null
                 textSize = 15f
                 setLineSpacing(6f, 1f)
@@ -352,7 +305,6 @@ class MainActivity : AppCompatActivity() {
             // 粘贴短信模式：用 CodeExtractor 自动解析
             val record = extractor.parseCode(inputText)
             if (record != null) {
-                // 解析成功 → 提交到 Service 展示
                 PickCodeService.submitManualCode(
                     this, record.code, record.codeType.ordinal, record.rawText
                 )
@@ -412,7 +364,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 TileService.requestListeningState(
                     this,
-                    ComponentName(this, PickCodeTileService::class.java)
+                    ComponentName(this, com.pickcode.app.tile.PickCodeTileService::class.java)
                 )
             } catch (_: Exception) { /* 忽略 */ }
         }
@@ -429,7 +381,7 @@ class MainActivity : AppCompatActivity() {
                     "添加「码住」快捷开关后，可在任意界面一键识别验证码！\n\n" +
                     "操作步骤：\n" +
                     "1. 从屏幕顶部向下滑出「通知栏」\n" +
-                    "2. 点击右下角「编辑」按钮（⚙\uFE0F 铅笔图标）\n" +
+                    "2. 点击右下角「编辑」按钮（⚙️ 铅笔图标）\n" +
                     "3. 找到「码住」图标\n" +
                     "4. 按住拖动到上方快捷区域\n\n" +
                     "\uD83D\uDCA1 添加成功后，下拉通知栏点击「码住」即可立即识别！" +
@@ -461,9 +413,9 @@ class MainActivity : AppCompatActivity() {
                 .setMessage(
                     "码住需要「无障碍服务」权限来实现一键截图识别。\n\n" +
                     "开启后可以：\n" +
-                    "• \u270F\uFE0F 点击即识别（无需每次选择录屏范围）\n" +
-                    "• \uD83D\uDCBB 通知栏按钮直接可用\n" +
-                    "• \uD83D\uDDD3 Tile 快捷开关稳定响应\n\n" +
+                    "• ✏️ 点击即识别（无需每次选择录屏范围）\n" +
+                    "• 📲 通知栏按钮直接可用\n" +
+                    "• 🎯 Tile 快捷开关稳定响应\n\n" +
                     "\u26A1 开启步骤：\n" +
                     "1. 点击下方「去设置」\n" +
                     "2. 找到「码住」\n" +
@@ -509,12 +461,12 @@ class MainActivity : AppCompatActivity() {
     //  菜单
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+    override fun onCreateOptionsMenu(menu: android.view.Menu): Boolean {
         menuInflater.inflate(R.menu.menu_main, menu)
         return true
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+    override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_settings -> {
                 startActivity(Intent(this, SettingsActivity::class.java))

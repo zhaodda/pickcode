@@ -198,10 +198,10 @@ class PickCodeAccessibilityService : AccessibilityService() {
         // 并延迟 ~1000ms 后才调用 extractFromScreenText("tile")，此时 QS 面板已完全收起。
         // 如果在这里再执行 GLOBAL_ACTION_BACK 反而会多按一次返回键，可能意外退出当前 App。
         if (from == "notification") {
-            AppLog.i(TAG, "[$from] 模拟返回键关闭通知栏面板，350ms后提取屏幕文字", from)
+            AppLog.i(TAG, "[$from] 模拟返回键关闭通知栏面板，200ms后提取屏幕文字", from)
             val collapsed = performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
             Log.d(TAG, "GLOBAL_ACTION_BACK result=$collapsed")
-            handler.postDelayed({ performExtract(from) }, 350)
+            handler.postDelayed({ performExtract(from) }, 200)
             return null
         }
 
@@ -379,6 +379,8 @@ class PickCodeAccessibilityService : AccessibilityService() {
             islandManager.showCode(record)
             AppLog.i(TAG, "✅ islandManager.showCode() 执行完成（通知已发送）")
             sendBroadcast(Intent(ACTION_CODE_FOUND).setPackage(packageName))
+            // 识别成功 → 震动反馈（受设置开关控制）
+            com.pickcode.app.util.vibrateIfEnabled(this@PickCodeAccessibilityService)
         } catch (e: Exception) {
             Log.e(TAG, "onCodeFailed 异常", e)
             AppLog.e(TAG, "onCodeFound 展示失败: ${e.javaClass.simpleName}: ${e.message}", throwable = e)

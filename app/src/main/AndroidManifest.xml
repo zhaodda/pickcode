@@ -70,13 +70,15 @@
         <activity
             android:name=".ui.activity.SettingsActivity"
             android:exported="false"
-            android:parentActivityName=".ui.activity.MainActivity" />
+            android:parentActivityName=".ui.activity.MainActivity"
+            android:theme="@style/Theme.PickCode.Settings" />
 
         <!-- 关于页面 -->
         <activity
             android:name=".ui.activity.AboutActivity"
             android:exported="false"
-            android:parentActivityName=".ui.activity.MainActivity" />
+            android:parentActivityName=".ui.activity.MainActivity"
+            android:theme="@style/Theme.PickCode.About" />
 
         <!-- 运行日志查看器 -->
         <activity

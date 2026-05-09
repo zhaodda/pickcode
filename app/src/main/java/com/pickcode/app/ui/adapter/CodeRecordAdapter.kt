@@ -16,21 +16,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import androidx.core.view.isGone
+import androidx.core.view.isVisible
+
 class CodeRecordAdapter(
     private val onFavoriteClick: (CodeRecord) -> Unit,
     private val onDeleteClick: (CodeRecord) -> Unit,
     private val onPickedUpClick: (CodeRecord) -> Unit
 ) : ListAdapter<CodeRecord, CodeRecordAdapter.VH>(DIFF) {
-
-    companion object {
-        private val DIFF = object : DiffUtil.ItemCallback<CodeRecord>() {
-            override fun areItemsTheSame(a: CodeRecord, b: CodeRecord) = a.id == b.id
-            override fun areContentsTheSame(a: CodeRecord, b: CodeRecord) = a == b
-        }
-        private val SDF = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
-    }
-
-    inner class VH(val binding: ItemCodeRecordBinding) : RecyclerView.ViewHolder(binding.root)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val binding = ItemCodeRecordBinding.inflate(
@@ -40,52 +33,59 @@ class CodeRecordAdapter(
     }
 
     override fun onBindViewHolder(holder: VH, position: Int) {
-        val record = getItem(position)
-        with(holder.binding) {
-            tvCode.text = record.code
-            tvType.text = "${record.codeType.emoji} ${record.codeType.label}"
-            tvTime.text = SDF.format(Date(record.timestamp))
+        holder.bind(getItem(position))
+    }
 
-            // 驿站地址：仅快递类型且有地址时显示
+    inner class VH(private val b: ItemCodeRecordBinding) : RecyclerView.ViewHolder(b.root) {
+        private val sdf = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
+
+        fun bind(record: CodeRecord) {
+            b.tvCode.text = record.code
+            b.tvType.text = "${record.codeType.emoji} ${record.codeType.label}"
+            b.tvTime.text = sdf.format(Date(record.timestamp))
+
             if (record.address.isNotEmpty()) {
-                tvAddress.text = "📍 ${record.address}"
-                tvAddress.visibility = android.view.View.VISIBLE
+                b.tvAddress.text = "📍 ${record.address}"
+                b.tvAddress.isVisible = true
             } else {
-                tvAddress.visibility = android.view.View.GONE
+                b.tvAddress.isGone = true
             }
 
             // 已取件状态 UI
             if (record.isPickedUp) {
-                // 卡片背景变灰
-                (root as com.google.android.material.card.MaterialCardView)
-                    .setCardBackgroundColor(root.context.getColor(R.color.bg_picked_up))
-                // 取件码文字变灰
-                tvCode.setTextColor(root.context.getColor(R.color.text_picked_up))
-                // 显示"已取件"标签
-                tvPickedUp.visibility = android.view.View.VISIBLE
+                (b.root as com.google.android.material.card.MaterialCardView)
+                    .setCardBackgroundColor(b.root.context.getColor(R.color.bg_picked_up))
+                b.tvCode.setTextColor(b.root.context.getColor(R.color.text_picked_up))
+                b.tvPickedUp.isVisible = true
             } else {
-                // 恢复默认样式
-                (root as com.google.android.material.card.MaterialCardView)
-                    .setCardBackgroundColor(root.context.getColor(R.color.bg_card))
-                tvCode.setTextColor(root.context.getColor(R.color.text_primary))
-                tvPickedUp.visibility = android.view.View.GONE
+                (b.root as com.google.android.material.card.MaterialCardView)
+                    .setCardBackgroundColor(b.root.context.getColor(R.color.bg_card))
+                b.tvCode.setTextColor(b.root.context.getColor(R.color.text_primary))
+                b.tvPickedUp.isGone = true
             }
 
-            btnFavorite.isSelected = record.isFavorite
-            btnFavorite.setOnClickListener { onFavoriteClick(record) }
-            btnDelete.setOnClickListener { onDeleteClick(record) }
+            b.btnFavorite.isSelected = record.isFavorite
+            b.btnFavorite.setOnClickListener { onFavoriteClick(record) }
+            b.btnDelete.setOnClickListener { onDeleteClick(record) }
 
-            // 点击卡片 → 切换已取件状态（不再复制）
-            root.setOnClickListener { onPickedUpClick(record) }
+            // 点击卡片 → 切换已取件状态
+            b.root.setOnClickListener { onPickedUpClick(record) }
 
             // 长按卡片 → 复制取件码
-            root.setOnLongClickListener {
-                val ctx = root.context
+            b.root.setOnLongClickListener {
+                val ctx = b.root.context
                 val cm = ctx.getSystemService(ClipboardManager::class.java)
                 cm.setPrimaryClip(ClipData.newPlainText("取件码", record.code))
-                android.widget.Toast.makeText(ctx, "已复制：${record.code}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(ctx, "已复制：${record.code}", Toast.LENGTH_SHORT).show()
                 true
             }
+        }
+    }
+
+    companion object {
+        private val DIFF = object : DiffUtil.ItemCallback<CodeRecord>() {
+            override fun areItemsTheSame(a: CodeRecord, b: CodeRecord): Boolean = a.id == b.id
+            override fun areContentsTheSame(a: CodeRecord, b: CodeRecord): Boolean = a == b
         }
     }
 }

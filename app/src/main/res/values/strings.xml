@@ -6,8 +6,9 @@
 
     <!-- UI -->
     <string name="action_settings">设置</string>
-    <string name="action_about">ℹ️ 关于</string>
+    <string name="action_about">关于</string>
     <string name="action_clear_history">清空历史</string>
+    <string name="action_logs">运行日志</string>
     <string name="fab_capture">识别验证码</string>
     <string name="empty_title">还没有识别记录</string>
     <string name="empty_subtitle">点击下方按钮或通知栏/快捷开关来识别</string>

@@ -11,6 +11,20 @@
         <item name="android:windowLightStatusBar">true</item>
     </style>
 
+    <style name="Theme.PickCode.About" parent="Theme.PickCode">
+        <!-- 状态栏透明，让 AppBar 沉浸进去 -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <!-- 深色 Hero 背景 → 状态栏图标用浅色 -->
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="Theme.PickCode.Settings" parent="Theme.PickCode">
+        <!-- 状态栏透明，让 AppBar 沉浸进去 -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <!-- 浅色工具栏背景 → 状态栏图标保持深色 -->
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
     <!-- 透明 Activity（用于截屏权限弹窗） -->
     <style name="Theme.Transparent" parent="Theme.PickCode">
         <item name="android:windowIsTranslucent">true</item>

@@ -27,7 +27,7 @@ class PickCodeTileService : TileService() {
         private const val TAG = "PickCodeTileService"
 
     /** QS 面板收起后等待多久再提取文字（毫秒） */
-    private const val PANEL_COLLAPSE_DELAY_MS = 350L
+    private const val PANEL_COLLAPSE_DELAY_MS = 200L
 
     /**
      * Tile 磁贴点击后的时间线设计：

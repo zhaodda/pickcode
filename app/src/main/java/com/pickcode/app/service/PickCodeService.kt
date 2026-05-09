@@ -155,6 +155,7 @@ class PickCodeService : Service() {
 
         scope.launch { repository.insert(record) }
         islandManager.showCode(record)
+        com.pickcode.app.util.vibrateIfEnabled(this)
 
         // 通知 MainActivity 刷新列表
         sendBroadcast(Intent(PickCodeApp.ACTION_CODE_UPDATED).setPackage(packageName))
@@ -190,7 +191,7 @@ class PickCodeService : Service() {
         )
 
         return NotificationCompat.Builder(this, PickCodeApp.CHANNEL_PERSISTENT)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.ic_notify)
             .setContentTitle("码住 已就绪")
             .setContentText("点击打开主界面，或用下方按钮立即识别")
             .setContentIntent(mainIntent)
