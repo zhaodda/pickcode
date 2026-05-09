@@ -15,6 +15,7 @@
         android:layout_height="48dp"
         app:cardCornerRadius="24dp"
         app:cardElevation="0dp"
+        app:cardBackgroundColor="@color/bg_surface"
         app:strokeColor="@color/border_default"
         app:strokeWidth="1dp"
         android:layout_marginBottom="16dp">
@@ -62,6 +63,7 @@
         android:layout_height="wrap_content"
         app:cardCornerRadius="12dp"
         app:cardElevation="0dp"
+        app:cardBackgroundColor="@color/bg_card"
         app:strokeColor="@color/border_default"
         app:strokeWidth="1dp"
         android:layout_marginBottom="16dp">
@@ -115,6 +117,7 @@
                 android:paddingHorizontal="12dp"
                 android:paddingVertical="6dp"
                 android:buttonTint="@color/accent_primary"
+                android:textColor="@color/text_primary"
                 android:textSize="13sp" />
 
             <RadioButton
@@ -125,6 +128,7 @@
                 android:paddingHorizontal="12dp"
                 android:paddingVertical="6dp"
                 android:buttonTint="@color/accent_primary"
+                android:textColor="@color/text_primary"
                 android:textSize="13sp" />
 
             <RadioButton
@@ -135,6 +139,7 @@
                 android:paddingHorizontal="12dp"
                 android:paddingVertical="6dp"
                 android:buttonTint="@color/accent_primary"
+                android:textColor="@color/text_primary"
                 android:textSize="13sp" />
 
             <RadioButton
@@ -145,6 +150,7 @@
                 android:paddingHorizontal="12dp"
                 android:paddingVertical="6dp"
                 android:buttonTint="@color/accent_primary"
+                android:textColor="@color/text_primary"
                 android:textSize="13sp" />
 
         </RadioGroup>
