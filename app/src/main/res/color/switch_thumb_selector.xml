@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Switch 拇指颜色选择器 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_checked="true" android:color="#534AB7" />
+    <item android:color="@color/text_hint" />
+</selector>

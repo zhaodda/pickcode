@@ -1,95 +1,124 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 日志条目：左侧彩色指示条 + 现代卡片风格 -->
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginHorizontal="12dp"
-    android:layout_marginVertical="3dp"
-    app:cardCornerRadius="8dp"
+    android:layout_marginHorizontal="0dp"
+    android:layout_marginVertical="4dp"
+    app:cardCornerRadius="10dp"
     app:cardElevation="0dp"
     app:strokeWidth="1dp"
-    app:strokeColor="@color/divider"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    app:strokeColor="#0D000000">
 
-    <LinearLayout
+    <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="12dp">
+        android:layout_height="wrap_content">
 
-        <!-- 第一行：级别 + 时间 + 来源 + 触发入口 -->
+        <!-- 左侧彩色指示条（由代码动态设置背景色）-->
+        <View
+            android:id="@+id/levelIndicator"
+            android:layout_width="4dp"
+            android:layout_height="match_parent"
+            android:layout_alignParentStart="true"
+            android:background="@color/accent_primary" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:layout_toEndOf="@id/levelIndicator"
+            android:orientation="vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp">
 
+            <!-- 第一行：级别标签 + 时间 + 来源 + 触发入口 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+
+                <TextView
+                    android:id="@+id/tvLogLevel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="2dp"
+                    android:includeFontPadding="false" />
+
+                <TextView
+                    android:id="@+id/tvLogTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="14:00:00"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_hint"
+                    android:fontFamily="monospace"
+                    android:includeFontPadding="false" />
+
+                <TextView
+                    android:id="@+id/tvLogSource"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:text="CaptureActivity"
+                    android:textSize="12sp"
+                    android:textColor="@color/text_secondary"
+                    android:fontFamily="monospace"
+                    android:includeFontPadding="false" />
+
+                <TextView
+                    android:id="@+id/tvLogTrigger"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="1dp"
+                    android:textSize="10sp"
+                    android:textColor="@color/white"
+                    android:visibility="gone"
+                    android:includeFontPadding="false" />
+
+            </LinearLayout>
+
+            <!-- 消息内容 -->
             <TextView
-                android:id="@+id/tvLogLevel"
-                android:layout_width="wrap_content"
+                android:id="@+id/tvLogMessage"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textSize="14sp"
-                android:minWidth="24dp" />
+                android:textColor="@color/text_primary"
+                android:textIsSelectable="true"
+                android:lineSpacingExtra="2dp"
+                tools:text="用户点击了立即识别按钮" />
 
+            <!-- 详情（异常堆栈等，默认隐藏） -->
             <TextView
-                android:id="@+id/tvLogTime"
-                android:layout_width="wrap_content"
+                android:id="@+id/tvLogDetail"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:text="14:00:00"
-                android:textSize="12sp"
-                android:textColor="@color/text_hint"
-                android:fontFamily="monospace" />
-
-            <TextView
-                android:id="@+id/tvLogSource"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="CaptureActivity"
-                android:textSize="13sp"
-                android:textColor="@color/text_secondary"
-                android:fontFamily="monospace" />
-
-            <TextView
-                android:id="@+id/tvLogTrigger"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:paddingHorizontal="6dp"
-                android:paddingVertical="1dp"
+                android:layout_marginTop="6dp"
+                android:padding="8dp"
+                android:background="#0D000000"
                 android:textSize="11sp"
-                android:visibility="gone" />
+                android:textColor="@color/text_hint"
+                android:fontFamily="monospace"
+                android:visibility="gone"
+                tools:visibility="visible"
+                tools:text="java.lang.SecurityException: ...\n    at com.pickcode.app..." />
 
         </LinearLayout>
 
-        <!-- 消息内容 -->
-        <TextView
-            android:id="@+id/tvLogMessage"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textSize="14sp"
-            android:textColor="@color/text_primary"
-            android:textIsSelectable="true"
-            tools:text="用户点击了立即识别按钮" />
-
-        <!-- 详情（异常堆栈等，默认隐藏） -->
-        <TextView
-            android:id="@+id/tvLogDetail"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:padding="8dp"
-            android:background="#0D000000"
-            android:textSize="11sp"
-            android:textColor="@color/text_hint"
-            android:fontFamily="monospace"
-            android:visibility="gone"
-            tools:visibility="visible"
-            tools:text="java.lang.SecurityException: ...\n    at com.pickcode.app..." />
-
-    </LinearLayout>
+    </RelativeLayout>
 
 </com.google.android.material.card.MaterialCardView>

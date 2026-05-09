@@ -1,150 +1,156 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:background="@color/bg_primary">
 
-    <com.google.android.material.appbar.AppBarLayout
+    <!-- 工具栏 -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:elevation="0dp">
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/bg_primary"
+        app:titleTextAppearance="@style/TextAppearance.PickCode.Title"
+        app:navigationIconTint="@color/text_primary"
+        android:elevation="0dp" />
 
-        <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/toolbar"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            android:background="@color/bg_primary"
-            app:titleTextAppearance="@style/TextAppearance.PickCode.Title"
-            app:navigationIconTint="@color/text_primary" />
-
-    </com.google.android.material.appbar.AppBarLayout>
-
-    <!-- 日志列表区域：包含过滤栏 + 列表 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
-
-        <!-- 统计信息栏 -->
-        <LinearLayout
-            android:id="@+id/statsBar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingHorizontal="16dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="4dp">
-
-            <!-- 过滤芯片组 -->
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/chipGroupFilter"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:singleSelection="true">
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipAll"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="\uD83D\uDCDB 全部" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipError"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="\u274C 错误" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipWarn"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="\u26A0\uFE0F 警告" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipInfo"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="\u2139\uFE0F 信息" />
-
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chipDebug"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="\uD83D\uDD28 调试" />
-
-        </com.google.android.material.chip.ChipGroup>
-
-        <!-- 统计文字 -->
-        <TextView
-            android:id="@+id/tvStats"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="共 0 条 · 0KB"
-            android:textSize="12sp"
-            android:textColor="@color/text_hint" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="8dp"
-            android:alpha="0.1"
-            android:background="@color/text_secondary" />
-
-    </LinearLayout>
-
-    <!-- 日志列表 -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerView"
+    <!-- 内容区域（可滚动） -->
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:fillViewport="true"
         android:clipToPadding="false"
-        android:paddingTop="8dp"
-        android:paddingBottom="16dp" />
+        android:paddingHorizontal="16dp"
+        android:paddingBottom="16dp">
 
-    </LinearLayout>
-
-    <!-- 空状态 -->
-    <LinearLayout
-        android:id="@+id/emptyView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:visibility="gone">
-
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="\uD83D\uDCDD"
-            android:textSize="48sp" />
+            android:orientation="vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="暂无运行日志"
-            android:textSize="16sp"
-            android:textColor="@color/text_secondary" />
+            <!-- ═══ 统计信息卡片 ═══ -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/border_default"
+                app:strokeWidth="1dp"
+                android:layout_marginBottom="12dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="使用通知栏、磁贴或主按钮后会自动记录"
-            android:textSize="13sp"
-            android:textColor="@color/text_hint" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-    </LinearLayout>
+                    <!-- 过滤芯片组 -->
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupFilter"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:singleSelection="true"
+                        app:selectionRequired="true">
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipAll"
+                            style="@style/Widget.MaterialComponents.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="📋 全部" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipError"
+                            style="@style/Widget.MaterialComponents.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="❌ 错误" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipWarn"
+                            style="@style/Widget.MaterialComponents.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="⚠️ 警告" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipInfo"
+                            style="@style/Widget.MaterialComponents.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="ℹ️ 信息" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipDebug"
+                            style="@style/Widget.MaterialComponents.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="🛈 调试" />
+
+                    </com.google.android.material.chip.ChipGroup>
+
+                    <!-- 统计文字 -->
+                    <TextView
+                        android:id="@+id/tvStats"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="共 0 条 · 0KB"
+                        android:textSize="12sp"
+                        android:textColor="@color/text_hint" />
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ═══ 日志列表 ═══ -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:paddingBottom="8dp" />
+
+            <!-- 空状态 -->
+            <LinearLayout
+                android:id="@+id/emptyView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:visibility="gone"
+                android:paddingTop="60dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📋"
+                    android:textSize="48sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="暂无运行日志"
+                    android:textSize="16sp"
+                    android:textColor="@color/text_secondary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="使用通知栏、磁贴或主按钮后会自动记录"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_hint" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</LinearLayout>

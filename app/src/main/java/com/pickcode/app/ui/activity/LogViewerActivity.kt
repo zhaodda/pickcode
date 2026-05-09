@@ -185,6 +185,7 @@ class LogViewerActivity : AppCompatActivity() {
         }
 
         inner class LogViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+            private val levelIndicator: View = itemView.findViewById(R.id.levelIndicator)
             private val tvLevel: TextView = itemView.findViewById(R.id.tvLogLevel)
             private val tvTime: TextView = itemView.findViewById(R.id.tvLogTime)
             private val tvSource: TextView = itemView.findViewById(R.id.tvLogSource)
@@ -195,6 +196,12 @@ class LogViewerActivity : AppCompatActivity() {
             fun bind(entry: AppLog.Entry) {
                 tvLevel.text = entry.level.prefix
                 tvLevel.setTextColor(when (entry.level) {
+                    AppLog.Level.ERROR -> 0xFFE53935.toInt()
+                    AppLog.Level.WARN  -> 0xFFF57F17.toInt()
+                    AppLog.Level.INFO  -> 0xFF1976D2.toInt()
+                    AppLog.Level.DEBUG -> 0xFF757575.toInt()
+                })
+                levelIndicator.setBackgroundColor(when (entry.level) {
                     AppLog.Level.ERROR -> 0xFFE53935.toInt()
                     AppLog.Level.WARN  -> 0xFFF57F17.toInt()
                     AppLog.Level.INFO  -> 0xFF1976D2.toInt()

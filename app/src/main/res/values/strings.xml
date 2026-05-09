@@ -35,6 +35,8 @@
     <string name="pref_vibrate_summary">提取到验证码时轻微震动提示</string>
     <string name="pref_about_title">关于</string>
     <string name="pref_version_title">版本</string>
+    <string name="pref_log_retention_title">自动删除日志</string>
+    <string name="pref_log_retention_summary">超过 %1$d 天的日志将被自动删除</string>
 
     <!-- About -->
     <string name="about_app_name">码住</string>

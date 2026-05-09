@@ -1,6 +1,7 @@
 package com.pickcode.app.util
 
 import android.content.Context
+import android.content.SharedPreferences
 import java.io.File
 import java.io.FileWriter
 import java.text.SimpleDateFormat
@@ -15,7 +16,7 @@ import java.util.concurrent.Executors
  * - 记录所有关键操作事件（触发入口、授权状态、截图结果、OCR 结果、错误信息等）
  * - 按日期分文件存储到应用私有目录
  * - 线程安全写入（单线程 executor）
- * - 自动清理 30 天前的旧日志
+ * - 按设置自动清理旧日志（默认 7 天）
  * - 提供读取接口供 LogViewerActivity 展示
  *
  * 使用方式：
@@ -26,7 +27,9 @@ object AppLog {
 
     private const val TAG = "AppLog"
     private const val LOG_DIR = "app_logs"
-    private const val MAX_LOG_DAYS = 30
+    private const val PREFS_NAME = "app_settings"
+    private const val KEY_RETENTION_DAYS = "log_retention_days"
+    private const val DEFAULT_RETENTION_DAYS = 7
     private const val MAX_ENTRIES_PER_DAY = 2000
 
     /** 日志级别 */
@@ -58,7 +61,7 @@ object AppLog {
     fun init(context: Context) {
         if (logDir == null) {
             logDir = File(context.filesDir, LOG_DIR).apply { mkdirs() }
-            cleanOldLogs()
+            cleanOldLogs(context)
         }
     }
 
@@ -116,7 +119,7 @@ object AppLog {
         val file = File(dir, fileName)
 
         try {
-            if (file.exists() && file.useLines { it.count() >= MAX_ENTRIES_PER_DAY }) return
+            if (file.exists() && file.useLines { it.count() } >= MAX_ENTRIES_PER_DAY) return
 
             FileWriter(file, true).use { writer ->
                 val line = formatEntry(entry)
@@ -182,7 +185,6 @@ object AppLog {
             val fromMatch = Regex("""from:(\w+)""").find(parts[3])
             if (fromMatch != null) {
                 triggerFrom = fromMatch.groupValues[1]
-                // message is the rest after "from:xxx |" or in parts[4]
                 message = parts.getOrNull(4) ?: parts[3].replace(Regex("""from:\w+\s*\|?\s*"""), "").trim()
             } else {
                 message = parts[3]
@@ -230,11 +232,34 @@ object AppLog {
         }
     }
 
+    // ── 日志保留天数设置 ──────────────────────────────────
+
+    /** 获取日志保留天数（从 SharedPreferences 读取，默认 7 天） */
+    fun getRetentionDays(context: Context? = null): Int {
+        return try {
+            val ctx = context ?: logDir?.let { /* 无法获取 context，使用默认值 */ return DEFAULT_RETENTION_DAYS }
+                ?: return DEFAULT_RETENTION_DAYS
+            val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.getInt(KEY_RETENTION_DAYS, DEFAULT_RETENTION_DAYS)
+        } catch (_: Exception) {
+            DEFAULT_RETENTION_DAYS
+        }
+    }
+
+    /** 设置日志保留天数，并立即触发一次清理 */
+    fun setRetentionDays(days: Int, context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt(KEY_RETENTION_DAYS, days).apply()
+        // 立即触发一次清理
+        executor.submit { cleanOldLogs(context) }
+    }
+
     // ── 清理旧日志 ──────────────────────────────────
 
-    private fun cleanOldLogs() {
+    fun cleanOldLogs(context: Context? = null) {
         val dir = logDir ?: return
-        val cutoff = System.currentTimeMillis() - MAX_LOG_DAYS * 24L * 60 * 60 * 1000
+        val retentionDays = getRetentionDays(context)
+        val cutoff = System.currentTimeMillis() - retentionDays * 24L * 60 * 60 * 1000
         val cutoffStr = fileDateFormat.format(Date(cutoff))
 
         dir.listFiles()
