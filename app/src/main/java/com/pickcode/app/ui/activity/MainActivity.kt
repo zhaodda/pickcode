@@ -12,20 +12,19 @@ import android.service.quicksettings.TileService
 import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.RadioButton
-import android.widget.RadioGroup
-import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.widget.ViewPager2
+import com.google.android.material.button.MaterialButtonToggleGroup
+import com.google.android.material.chip.ChipGroup
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
+import com.google.android.material.textfield.TextInputLayout
 import com.pickcode.app.R
 import com.pickcode.app.data.model.CodeType
 import com.pickcode.app.databinding.ActivityMainBinding
@@ -35,7 +34,6 @@ import com.pickcode.app.ui.adapter.MainPagerAdapter
 import com.pickcode.app.ui.viewmodel.MainViewModel
 import com.pickcode.app.util.AppLog
 import kotlinx.coroutines.launch
-import android.util.Log
 
 class MainActivity : AppCompatActivity() {
 
@@ -169,41 +167,51 @@ class MainActivity : AppCompatActivity() {
     private fun showManualInputDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_manual_input, null)
 
-        val rgInputMode = dialogView.findViewById<RadioGroup>(R.id.rg_input_mode)
-        val etInput     = dialogView.findViewById<EditText>(R.id.et_manual_input)
-        val layoutType  = dialogView.findViewById<LinearLayout>(R.id.layout_type_selector)
-        val rgCodeType = dialogView.findViewById<RadioGroup>(R.id.rg_code_type)
+        val groupInputMode = dialogView.findViewById<MaterialButtonToggleGroup>(R.id.group_input_mode)
+        val inputLayout = dialogView.findViewById<TextInputLayout>(R.id.input_layout_manual)
+        val etInput = dialogView.findViewById<EditText>(R.id.et_manual_input)
+        val layoutType = dialogView.findViewById<LinearLayout>(R.id.layout_type_selector)
+        val chipGroupCodeType = dialogView.findViewById<ChipGroup>(R.id.chip_group_code_type)
 
         // 默认：粘贴短信模式
         var isPasteMode = true
 
-        rgInputMode.setOnCheckedChangeListener { _, checkedId ->
-            isPasteMode = (checkedId == R.id.rb_paste_mode)
-            etInput.hint = if (isPasteMode)
-                "在此粘贴整条取件码短信..."
-            else
-                "输入取件码（如：6-8-3-2）"
+        groupInputMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+
+            isPasteMode = checkedId == R.id.btn_mode_paste
+            inputLayout.hint = if (isPasteMode) {
+                "在此粘贴整条取件码短信"
+            } else {
+                "输入取件码"
+            }
+            inputLayout.placeholderText = if (isPasteMode) {
+                "例如：【丰巢】您的包裹已到达，取件码 5-8-3-2"
+            } else {
+                "例如：6-8-3-2"
+            }
+            etInput.minLines = if (isPasteMode) 4 else 1
+            etInput.maxLines = if (isPasteMode) 6 else 1
             layoutType.visibility = if (isPasteMode) View.GONE else View.VISIBLE
         }
 
         MaterialAlertDialogBuilder(this)
-            .setTitle("\uD83C\uDFE6 \u624B\u52A8\u8F93\u5165\u53D6\u4EF6\u7801")
             .setView(dialogView)
-            .setPositiveButton("\u786E\u8BA4\u63D0\u4EA4") { _, _ ->
+            .setPositiveButton("添加") { _, _ ->
                 val inputText = etInput.text.toString().trim()
                 if (inputText.isBlank()) {
-                    Snackbar.make(binding.root, "\u5185\u5BB9\u4E0D\u80FD\u4E3A\u7A7A", Snackbar.LENGTH_SHORT).show()
+                    Snackbar.make(binding.root, "内容不能为空", Snackbar.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
-                val selectedOrdinal = when (rgCodeType.checkedRadioButtonId) {
-                    R.id.rb_type_meal    -> 1
-                    R.id.rb_type_parking  -> 2
-                    R.id.rb_type_other   -> 3
-                    else                    -> 0
+                val selectedOrdinal = when (chipGroupCodeType.checkedChipId) {
+                    R.id.chip_type_food -> CodeType.FOOD.ordinal
+                    R.id.chip_type_parking -> CodeType.PARKING.ordinal
+                    R.id.chip_type_other -> CodeType.OTHER.ordinal
+                    else -> CodeType.EXPRESS.ordinal
                 }
                 submitManualInput(inputText, isPasteMode, selectedOrdinal)
             }
-            .setNegativeButton("\u53D6\u6D88", null)
+            .setNegativeButton("取消", null)
             .show()
     }
 
