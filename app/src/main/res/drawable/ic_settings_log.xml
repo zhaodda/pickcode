@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 日志/时钟图标（自动删除日志设置用） -->
+<!-- 日志/文档图标：只用最基础命令，100% 有效 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
-    android:viewportHeight="24"
-    android:tint="#534AB7">
+    android:viewportHeight="24">
     <path
-        android:fillColor="@android:color/white"
-        android:pathData="M13,3 Q13,1 12,1 Q11,1 11,3 L11,4 Q9,5 9,7 Q9,10 11,11 L11,13 Q11,15 12,15 Q13,15 13,13 L13,11 Q15,10 15,7 Q15,5 13,4 L13,3 Z M13,7 Q13,7 13,7 13,7 Q13,7 13,7 13,7 Q13,7 13,7 Z M12,3 Q12,3 12,3 12,3 Q12,3 12,3 12,3 Q12,3 12,3 Z" />
+        android:fillColor="#534AB7"
+        android:pathData="M6,4h12v16H6z" />
 </vector>

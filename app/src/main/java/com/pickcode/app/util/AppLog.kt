@@ -13,15 +13,15 @@ import java.util.concurrent.Executors
  * 码住运行日志管理器（单例）
  *
  * 功能：
- * - 记录所有关键操作事件（触发入口、授权状态、截图结果、OCR 结果、错误信息等）
+ * - 记录关键操作事件（触发入口、授权状态、识别结果、错误信息等）
  * - 按日期分文件存储到应用私有目录
  * - 线程安全写入（单线程 executor）
  * - 按设置自动清理旧日志（默认 7 天）
  * - 提供读取接口供 LogViewerActivity 展示
  *
  * 使用方式：
- *   AppLog.i("CaptureActivity", "用户点击了通知栏按钮")
- *   AppLog.e("CaptureActivity", "截图失败", exception)
+ *   AppLog.i("PickCodeService", "用户点击了通知栏按钮")
+ *   AppLog.e("PickCodeService", "识别失败", exception)
  */
 object AppLog {
 
@@ -78,6 +78,13 @@ object AppLog {
 
     fun d(source: String, message: String, triggerFrom: String? = null) =
         log(Level.DEBUG, source, message, null, triggerFrom)
+
+    fun maskCode(value: String): String {
+        val trimmed = value.trim()
+        if (trimmed.isEmpty()) return ""
+        if (trimmed.length <= 2) return "*".repeat(trimmed.length)
+        return "*".repeat(trimmed.length - 2) + trimmed.takeLast(2)
+    }
 
     /** 核心写入方法（异步 + 线程安全） */
     fun log(
@@ -237,8 +244,7 @@ object AppLog {
     /** 获取日志保留天数（从 SharedPreferences 读取，默认 7 天） */
     fun getRetentionDays(context: Context? = null): Int {
         return try {
-            val ctx = context ?: logDir?.let { /* 无法获取 context，使用默认值 */ return DEFAULT_RETENTION_DAYS }
-                ?: return DEFAULT_RETENTION_DAYS
+            val ctx = context ?: return DEFAULT_RETENTION_DAYS
             val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.getInt(KEY_RETENTION_DAYS, DEFAULT_RETENTION_DAYS)
         } catch (_: Exception) {
@@ -259,6 +265,8 @@ object AppLog {
     fun cleanOldLogs(context: Context? = null) {
         val dir = logDir ?: return
         val retentionDays = getRetentionDays(context)
+        if (retentionDays < 0) return
+
         val cutoff = System.currentTimeMillis() - retentionDays * 24L * 60 * 60 * 1000
         val cutoffStr = fileDateFormat.format(Date(cutoff))
 

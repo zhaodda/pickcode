@@ -11,7 +11,6 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
 import com.pickcode.app.R
-import com.pickcode.app.databinding.FragmentSettingsBinding
 import com.pickcode.app.service.PickCodeAccessibilityService
 import com.pickcode.app.ui.activity.AboutActivity
 import com.pickcode.app.ui.activity.LogViewerActivity
@@ -21,8 +20,6 @@ class SettingsFragment :
     androidx.fragment.app.Fragment(R.layout.fragment_settings),
     SharedPreferences.OnSharedPreferenceChangeListener {
 
-    private var _binding: FragmentSettingsBinding? = null
-    private val binding get() = _binding!!
     private lateinit var prefs: SharedPreferences
 
     // 开关项
@@ -50,7 +47,6 @@ class SettingsFragment :
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        _binding = FragmentSettingsBinding.bind(view)
         prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
 
         setupHeader(view)
@@ -119,7 +115,6 @@ class SettingsFragment :
         itemLogViewer.findViewById<TextView>(R.id.title).text = getString(R.string.action_logs)
         itemLogViewer.findViewById<TextView>(R.id.summary).text = "查看历史运行记录"
     }
-
     private fun setupListeners() {
         switchAutoStart.isChecked = prefs.getBoolean("auto_start_on_boot", false)
         switchAutoStart.setOnCheckedChangeListener { _, isChecked ->
@@ -208,6 +203,5 @@ class SettingsFragment :
 
     override fun onDestroyView() {
         super.onDestroyView()
-        _binding = null
     }
 }

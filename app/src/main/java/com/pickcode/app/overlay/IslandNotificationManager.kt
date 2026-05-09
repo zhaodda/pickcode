@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import com.pickcode.app.R
 import com.pickcode.app.data.model.CodeRecord
 import com.pickcode.app.data.model.CodeType
+import com.pickcode.app.service.CopyCodeReceiver
 import com.pickcode.app.ui.activity.MainActivity
 import com.pickcode.app.util.AppLog
 
@@ -71,10 +72,10 @@ class IslandNotificationManager(private val context: Context) {
         // 携带 notificationId，复制后可精确关闭本条通知
         val copyIntent = PendingIntent.getBroadcast(
             context, notificationId,
-            Intent(ACTION_COPY_CODE).apply {
+            Intent(context, CopyCodeReceiver::class.java).apply {
+                action = ACTION_COPY_CODE
                 putExtra(EXTRA_CODE, record.code)
                 putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-                `package` = context.packageName
             },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
@@ -101,8 +102,11 @@ class IslandNotificationManager(private val context: Context) {
             .build()
 
         notificationManager.notify(notificationId, notification)
-        AppLog.i("NotifMgr", "✅ 发送取件码通知 [id=$notificationId] ${typeLabel}: ${record.code}" +
-                if (record.address.isNotEmpty()) " @ ${record.address}" else "")
+        AppLog.i(
+            "NotifMgr",
+            "发送取件码通知 [id=$notificationId] $typeLabel code=${AppLog.maskCode(record.code)}" +
+                if (record.address.isNotEmpty()) " address_present=true" else ""
+        )
     }
 
     /** 展示"未找到验证码"提示 */

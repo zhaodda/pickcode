@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 手动输入取件码对话框布局 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/dialog_manual_input_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:background="@color/bg_primary">
+
+    <!-- 模式切换（粘贴短信 / 手动填写） -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="0dp"
+        app:strokeColor="@color/border_default"
+        app:strokeWidth="1dp"
+        android:layout_marginBottom="16dp">
+
+        <RadioGroup
+            android:id="@+id/rg_input_mode"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:background="@null">
+
+            <RadioButton
+                android:id="@+id/rb_paste_mode"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:button="@null"
+                android:background="@drawable/bg_mode_left"
+                android:text="📋 粘贴短信"
+                android:textSize="13sp"
+                android:textColor="@color/text_mode_switch"
+                android:textStyle="bold" />
+
+            <RadioButton
+                android:id="@+id/rb_manual_mode"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:button="@null"
+                android:background="@drawable/bg_mode_right"
+                android:text="✏️ 手动填写"
+                android:textSize="13sp"
+                android:textColor="@color/text_mode_switch"
+                android:textStyle="bold" />
+
+        </RadioGroup>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- 输入框区域 -->
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp"
+        app:strokeColor="@color/border_default"
+        app:strokeWidth="1dp"
+        android:layout_marginBottom="16dp">
+
+        <EditText
+            android:id="@+id/et_manual_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minLines="4"
+            android:maxLines="6"
+            android:gravity="top|start"
+            android:background="@null"
+            android:padding="16dp"
+            android:hint="在此粘贴整条取件码短信..."
+            android:textSize="15sp"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_hint"
+            android:inputType="textMultiLine|textLongMessage" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- 类型选择（手动模式下显示） -->
+    <LinearLayout
+        android:id="@+id/layout_type_selector"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="选择类型"
+            android:textSize="13sp"
+            android:textColor="@color/text_secondary"
+            android:layout_marginBottom="8dp" />
+
+        <RadioGroup
+            android:id="@+id/rg_code_type"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <RadioButton
+                android:id="@+id/rb_type_express"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📦 快递"
+                android:checked="true"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
+                android:buttonTint="@color/accent_primary"
+                android:textSize="13sp" />
+
+            <RadioButton
+                android:id="@+id/rb_type_meal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🍱 外卖"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
+                android:buttonTint="@color/accent_primary"
+                android:textSize="13sp" />
+
+            <RadioButton
+                android:id="@+id/rb_type_parking"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🅿️ 停车"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
+                android:buttonTint="@color/accent_primary"
+                android:textSize="13sp" />
+
+            <RadioButton
+                android:id="@+id/rb_type_other"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📋 其他"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp"
+                android:buttonTint="@color/accent_primary"
+                android:textSize="13sp" />
+
+        </RadioGroup>
+    </LinearLayout>
+
+</LinearLayout>

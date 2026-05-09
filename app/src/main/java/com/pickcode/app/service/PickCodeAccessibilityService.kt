@@ -12,6 +12,7 @@ import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.core.content.ContextCompat
 import com.pickcode.app.data.model.CodeRecord
 import com.pickcode.app.ocr.CodeExtractor
 import com.pickcode.app.overlay.IslandNotificationManager
@@ -144,7 +145,12 @@ class PickCodeAccessibilityService : AccessibilityService() {
 
         // 注册广播接收器（接收通知栏按钮的触发）
         try {
-            registerReceiver(screenshotReceiver, IntentFilter(ACTION_TRIGGER_SCREENSHOT))
+            ContextCompat.registerReceiver(
+                this,
+                screenshotReceiver,
+                IntentFilter(ACTION_TRIGGER_SCREENSHOT),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
             Log.d(TAG, "Broadcast receiver registered")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to register broadcast receiver", e)
@@ -263,7 +269,7 @@ class PickCodeAccessibilityService : AccessibilityService() {
             // 如果提取到的文字包含通知栏/QS 面板的特征文字，说明面板还未完全收起。
             // 此时应该再按一次返回键，等一会儿重新提取。
             if (retryCount < MAX_RETRIES && looksLikePanelText(fullText)) {
-                AppLog.w(TAG, "⚠️ 检测到面板残留文字(重试${retryCount + 1}/${MAX_RETRIES}): ${fullText.take(100)}", from)
+                AppLog.w(TAG, "检测到面板残留文字(重试${retryCount + 1}/${MAX_RETRIES}, length=${fullText.length})", from)
                 // 再按一次返回键关闭残留面板
                 performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
                 // 递归重试，延迟更长一点
@@ -271,16 +277,16 @@ class PickCodeAccessibilityService : AccessibilityService() {
                 return null
             }
 
-            AppLog.d(TAG, "提取到屏幕文字(${fullText.length}字符): ${fullText.take(200)}")
+            AppLog.d(TAG, "提取到屏幕文字(${fullText.length}字符，内容已脱敏)")
 
             // 用正则解析取件码
             val record = extractor.extractFromText(fullText)
             if (record != null) {
-                AppLog.i(TAG, "✅ 从屏幕文字识别到取件码: ${record.code} (${record.codeType})", from)
+                AppLog.i(TAG, "从屏幕文字识别到取件码: ${AppLog.maskCode(record.code)} (${record.codeType})", from)
                 onCodeFound(record)
                 return record
             } else {
-                AppLog.i(TAG, "❌ 屏幕文字中未找到取件码", from)
+                AppLog.i(TAG, "屏幕文字中未找到取件码", from)
                 handler.post { islandManager.showNoResult() }
                 return null
             }
@@ -371,8 +377,8 @@ class PickCodeAccessibilityService : AccessibilityService() {
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     private fun onCodeFound(record: CodeRecord) {
-        AppLog.i(TAG, "🏝️ onCodeFound 被调用: code=${record.code}, type=${record.codeType}, island=${islandManager.managerName}")
-        Log.i(TAG, "onCodeFound: code=${record.code}, delegate=${islandManager.managerName}")
+        AppLog.i(TAG, "onCodeFound: code=${AppLog.maskCode(record.code)}, type=${record.codeType}, island=${islandManager.managerName}")
+        Log.i(TAG, "onCodeFound: code=${AppLog.maskCode(record.code)}, delegate=${islandManager.managerName}")
         try {
             scope.launch { repository.insert(record) }
             AppLog.i(TAG, "→ 调用 islandManager.showCode() 展示到${islandManager.managerName}")

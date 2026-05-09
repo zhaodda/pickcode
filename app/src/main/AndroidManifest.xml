@@ -6,6 +6,7 @@
 
     <!-- 前台服务权限 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <!-- 通知权限（Android 13+ 必须申请） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -86,21 +87,19 @@
             android:exported="false"
             android:parentActivityName=".ui.activity.MainActivity" />
 
-        <!-- 前台服务：常驻通知保活 + 节点树提取中转 + 超级岛通知 -->
+        <!-- 前台服务：常驻通知保活 + 节点树提取中转 + 标准通知展示 -->
         <!--
             Android 14 (API 34) 限制：
-            - 必须声明 foregroundServiceType，否则 startForegroundService() 抛异常
-            - 使用 specialUse 类型，无需额外 token
-            - targetSdk 33 以避开 Android 14 的严格校验
+            - 必须声明 foregroundServiceType
+            - specialUse 类型需要 FOREGROUND_SERVICE_SPECIAL_USE 权限和 subtype 说明
         -->
         <service
             android:name=".service.PickCodeService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
-            <!-- specialUse 类型必须在 Manifest 中声明使用原因（Android 14+） -->
             <property
-                android:name="android.app.foreground_service_special_use_reason"
-                android:value="常驻通知保活 + 无障碍节点树文字提取中转，需保障服务不被系统杀掉" />
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="用户主动点击通知或快捷磁贴时，维持前台服务以触发本地无障碍节点文字提取并展示验证码通知。" />
         </service>
 
         <!-- Quick Settings Tile（快捷开关） -->
@@ -125,17 +124,12 @@
         </receiver>
 
         <!--
-            复制验证码广播接收器（超级岛 Action 按钮触发）
-            接收来自小米超级岛"复制验证码"按钮的广播
-            Action: com.pickcode.ACTION_COPY_CODE
+            复制验证码广播接收器（通知 Action 按钮触发）
+            仅接收应用内显式 PendingIntent 广播。
         -->
         <receiver
             android:name=".service.CopyCodeReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.pickcode.ACTION_COPY_CODE" />
-            </intent-filter>
-        </receiver>
+            android:exported="false" />
 
         <!-- 无障碍服务：核心 — 节点树文字提取取件码（效仿 Tally 记账App） -->
         <service

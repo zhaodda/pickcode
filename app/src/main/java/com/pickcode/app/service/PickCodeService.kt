@@ -56,7 +56,7 @@ class PickCodeService : Service() {
             // 直接调用无障碍服务提取屏幕文字（传入来源以决定是否折叠面板）
             val result = PickCodeAccessibilityService.extractFromScreenText(from)
             if (result != null) {
-                AppLog.i("PickCodeService", "✅ 识别成功: ${result.code}", from)
+                AppLog.i("PickCodeService", "识别成功: ${AppLog.maskCode(result.code)}", from)
                 return
             }
 

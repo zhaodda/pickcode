@@ -9,12 +9,6 @@
         app:showAsAction="never" />
 
     <item
-        android:id="@+id/action_logs"
-        android:title="@string/action_logs"
-        android:orderInCategory="2"
-        app:showAsAction="never" />
-
-    <item
         android:id="@+id/action_clear"
         android:title="@string/action_clear_history"
         android:orderInCategory="3"

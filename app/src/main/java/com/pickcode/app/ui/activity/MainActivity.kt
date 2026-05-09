@@ -9,6 +9,8 @@ import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.service.quicksettings.TileService
+import android.view.View
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
@@ -165,131 +167,43 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showManualInputDialog() {
-        // 使用自定义布局的对话框
-        val context = this
-        val layout = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(40, 20, 40, 8)
+        val dialogView = layoutInflater.inflate(R.layout.dialog_manual_input, null)
+
+        val rgInputMode = dialogView.findViewById<RadioGroup>(R.id.rg_input_mode)
+        val etInput     = dialogView.findViewById<EditText>(R.id.et_manual_input)
+        val layoutType  = dialogView.findViewById<LinearLayout>(R.id.layout_type_selector)
+        val rgCodeType = dialogView.findViewById<RadioGroup>(R.id.rg_code_type)
+
+        // 默认：粘贴短信模式
+        var isPasteMode = true
+
+        rgInputMode.setOnCheckedChangeListener { _, checkedId ->
+            isPasteMode = (checkedId == R.id.rb_paste_mode)
+            etInput.hint = if (isPasteMode)
+                "在此粘贴整条取件码短信..."
+            else
+                "输入取件码（如：6-8-3-2）"
+            layoutType.visibility = if (isPasteMode) View.GONE else View.VISIBLE
         }
-
-        // ── 模式切换（Segmented 样式）──
-        var isPasteMode = true // 默认粘贴模式
-        lateinit var inputEdit: android.widget.EditText
-        lateinit var typeSelector: LinearLayout
-
-        val modeContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            background = ContextCompat.getDrawable(context, R.drawable.bg_mode_switch)
-            setPadding(4f.toPx(), 4f.toPx(), 4f.toPx(), 4f.toPx())
-
-            val rbPaste = RadioButton(context).apply {
-                text = "📋 粘贴短信"
-                isChecked = true
-                setButtonDrawable(android.R.color.transparent)
-                gravity = android.view.Gravity.CENTER
-                setPadding(0, 10f.toPx(), 0, 10f.toPx())
-                textSize = 14f
-                setTypeface(null, Typeface.BOLD)
-                setTextColor(ContextCompat.getColorStateList(context, R.color.text_mode_switch))
-                minWidth = 120
-            }
-            val rbManual = RadioButton(context).apply {
-                text = "✏️ 手动填写"
-                setButtonDrawable(android.R.color.transparent)
-                gravity = android.view.Gravity.CENTER
-                setPadding(0, 10f.toPx(), 0, 10f.toPx())
-                textSize = 14f
-                setTextColor(ContextCompat.getColorStateList(context, R.color.text_mode_switch))
-                minWidth = 120
-            }
-            val modeGroup = RadioGroup(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                addView(rbPaste)
-                addView(rbManual)
-                setOnCheckedChangeListener { _, _ ->
-                    isPasteMode = rbPaste.isChecked
-                    inputEdit.hint = if (isPasteMode)
-                        "在此粘贴整条取件码短信..."
-                    else
-                        "输入取件码（如：6-8-3-2）"
-                    typeSelector.visibility = if (isPasteMode) android.view.View.GONE else android.view.View.VISIBLE
-                }
-            }
-            addView(modeGroup)
-        }
-        layout.addView(modeContainer)
-
-        // ── 输入框区域（带圆角背景）──
-        val inputContainer = com.google.android.material.card.MaterialCardView(context).apply {
-            useCompatPadding = false
-            cardElevation = 0f
-            radius = 16f
-            strokeColor = ContextCompat.getColor(context, R.color.divider)
-            strokeWidth = 1
-            setContentPadding(16f.toPx(), 20f.toPx(), 16f.toPx(), 12f.toPx())
-            setCardBackgroundColor(ContextCompat.getColor(context, R.color.bg_secondary))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = 20f.toPx() }
-
-            inputEdit = android.widget.EditText(context).apply {
-                hint = "在此粘贴整条取件码短信...\n例如：【丰巢】您有一个包裹，取件码：5-8-3-2"
-                isSingleLine = false
-                maxLines = 5
-                minLines = 3
-                setInputType(android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE)
-                background = null
-                textSize = 15f
-                setLineSpacing(6f, 1f)
-            }
-            addView(inputEdit)
-        }
-        layout.addView(inputContainer)
-
-        // ── 类型选择（手动模式下显示）──
-        typeSelector = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            visibility = android.view.View.GONE
-            setPadding(4f.toPx(), 18f.toPx(), 4f.toPx(), 0)
-
-            val labelTv = TextView(context).apply {
-                text = "选择类型"
-                textSize = 13f
-                setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
-                setPadding(0, 0, 0, 10f.toPx())
-            }
-            addView(labelTv)
-
-            val rg = RadioGroup(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                CodeType.values().forEach { type ->
-                    addView(RadioButton(context).apply {
-                        text = "${type.emoji} ${type.label}"
-                        tag = type.ordinal
-                        if (type == CodeType.EXPRESS) isChecked = true
-                        setPadding(16f.toPx(), 8f.toPx(), 16f.toPx(), 8f.toPx())
-                        buttonTintList = ContextCompat.getColorStateList(context, R.color.accent_primary)
-                        textSize = 13f
-                    })
-                }
-            }
-            addView(rg)
-        }
-        layout.addView(typeSelector)
 
         MaterialAlertDialogBuilder(this)
-            .setTitle("📮 手动输入取件码")
-            .setView(layout)
-            .setPositiveButton("确认提交") { _, _ ->
-                val inputText = inputEdit.text.toString().trim()
+            .setTitle("\uD83C\uDFE6 \u624B\u52A8\u8F93\u5165\u53D6\u4EF6\u7801")
+            .setView(dialogView)
+            .setPositiveButton("\u786E\u8BA4\u63D0\u4EA4") { _, _ ->
+                val inputText = etInput.text.toString().trim()
                 if (inputText.isBlank()) {
-                    Snackbar.make(binding.root, "内容不能为空", Snackbar.LENGTH_SHORT).show()
+                    Snackbar.make(binding.root, "\u5185\u5BB9\u4E0D\u80FD\u4E3A\u7A7A", Snackbar.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
-                submitManualInput(inputText, isPasteMode, typeSelector)
+                val selectedOrdinal = when (rgCodeType.checkedRadioButtonId) {
+                    R.id.rb_type_meal    -> 1
+                    R.id.rb_type_parking  -> 2
+                    R.id.rb_type_other   -> 3
+                    else                    -> 0
+                }
+                submitManualInput(inputText, isPasteMode, selectedOrdinal)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton("\u53D6\u6D88", null)
             .show()
     }
 
@@ -298,9 +212,9 @@ class MainActivity : AppCompatActivity() {
      *
      * @param inputText 用户输入的文本
      * @param isPasteMode true=粘贴短信模式（自动解析），false=手动填写模式
-     * @param typeSelector 类型选择器容器（手动模式下读取选中的类型）
+     * @param selectedTypeOrdinal 手动模式下选中的类型 ordinal
      */
-    private fun submitManualInput(inputText: String, isPasteMode: Boolean, typeSelector: LinearLayout) {
+    private fun submitManualInput(inputText: String, isPasteMode: Boolean, selectedTypeOrdinal: Int) {
         if (isPasteMode) {
             // 粘贴短信模式：用 CodeExtractor 自动解析
             val record = extractor.parseCode(inputText)
@@ -325,14 +239,10 @@ class MainActivity : AppCompatActivity() {
             }
         } else {
             // 手动填写模式：直接使用用户输入作为 code
-            val rg = typeSelector.getChildAt(0) as RadioGroup
-            val checkedId = rg.checkedRadioButtonId
-            val selectedOrdinal = findViewById<RadioButton>(checkedId)?.tag as? Int ?: CodeType.OTHER.ordinal
-
             PickCodeService.submitManualCode(
-                this, inputText, selectedOrdinal, "(手动输入)"
+                this, inputText, selectedTypeOrdinal, "(手动输入)"
             )
-            val typeLabel = CodeType.values().getOrElse(selectedOrdinal) { CodeType.OTHER }
+            val typeLabel = CodeType.values().getOrElse(selectedTypeOrdinal) { CodeType.OTHER }
             Snackbar.make(
                 binding.root,
                 "✅ 已添加！${typeLabel.emoji} $inputText",
@@ -398,7 +308,7 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 检查并显示无障碍服务引导
-     * v1.0.5: 无障碍服务是截屏识别的核心，必须引导用户开启
+     * 无障碍服务用于在用户主动触发时读取当前屏幕节点文字。
      */
     private fun showA11yGuideIfNeeded() {
         val prefs = getSharedPreferences("pickcode_prefs", MODE_PRIVATE)
@@ -411,11 +321,11 @@ class MainActivity : AppCompatActivity() {
             AlertDialog.Builder(this)
                 .setTitle("\uD83C\uDF1F 开启无障碍服务")
                 .setMessage(
-                    "码住需要「无障碍服务」权限来实现一键截图识别。\n\n" +
-                    "开启后可以：\n" +
-                    "• ✏️ 点击即识别（无需每次选择录屏范围）\n" +
-                    "• 📲 通知栏按钮直接可用\n" +
-                    "• 🎯 Tile 快捷开关稳定响应\n\n" +
+                    "码住需要「无障碍服务」权限，在你主动点击识别时读取当前屏幕可见文字并在本地解析验证码。\n\n" +
+                    "说明：\n" +
+                    "• 不截图、不录屏\n" +
+                    "• 不联网上传\n" +
+                    "• 不在后台持续读取屏幕内容\n\n" +
                     "\u26A1 开启步骤：\n" +
                     "1. 点击下方「去设置」\n" +
                     "2. 找到「码住」\n" +
@@ -474,11 +384,6 @@ class MainActivity : AppCompatActivity() {
             }
             R.id.action_about -> {
                 startActivity(Intent(this, AboutActivity::class.java))
-                true
-            }
-            R.id.action_logs -> {
-                AppLog.i("MainActivity", "用户打开了运行日志查看器")
-                startActivity(Intent(this, LogViewerActivity::class.java))
                 true
             }
             R.id.action_clear -> {

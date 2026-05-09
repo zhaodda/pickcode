@@ -46,5 +46,5 @@
     <string name="about_version_format">版本 %s</string>
 
     <!-- Accessibility Service -->
-    <string name="accessibility_service_description">码住无障碍服务\n\n用于截取屏幕内容并识别取件码/验证码。\n\n• 读取屏幕截图\n• 自动识别快递取件码、外卖取餐码等验证码\n\n不会收集任何个人信息，所有处理均在本地完成。</string>
+    <string name="accessibility_service_description">码住无障碍服务\n\n用于在你主动点击识别时读取当前屏幕可见文字和控件描述，并在本地解析取件码/验证码。\n\n• 不截图、不录屏\n• 不联网上传\n• 不在后台持续读取屏幕内容\n\n所有处理均在本地完成。</string>
 </resources>

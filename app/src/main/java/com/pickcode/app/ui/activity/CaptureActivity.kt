@@ -223,8 +223,8 @@ class CaptureActivity : Activity() {
 
             withContext(Dispatchers.Main) {
                 if (record != null) {
-                    Log.i(TAG, "Code found: ${record.code} (${record.codeType})")
-                    AppLog.i("CaptureActivity", "OCR识别成功：${record.codeType.emoji} ${record.code}", triggerFrom)
+                    Log.i(TAG, "Code found: ${AppLog.maskCode(record.code)} (${record.codeType})")
+                    AppLog.i("CaptureActivity", "OCR识别成功：${record.codeType.emoji} ${AppLog.maskCode(record.code)}", triggerFrom)
                     scope.launch(Dispatchers.IO) { repository.insert(record) }
                     islandManager.showCode(record)
                     sendBroadcast(Intent(PickCodeApp.ACTION_CODE_UPDATED).setPackage(packageName))

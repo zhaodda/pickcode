@@ -14,7 +14,7 @@ import com.pickcode.app.overlay.IslandNotificationManager
  * 触发路径：
  * 1. 取件码通知包含一个"复制"操作按钮
  * 2. 用户点击通知上的"复制"按钮
- * 3. 系统发送 ACTION_COPY_CODE 广播（含验证码 + notificationId）
+ * 3. 应用内显式 PendingIntent 发送 ACTION_COPY_CODE 广播（含验证码 + notificationId）
  * 4. 本 Receiver 接收广播，执行复制并取消对应的通知
  */
 class CopyCodeReceiver : BroadcastReceiver() {
