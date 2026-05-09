@@ -50,9 +50,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var adapter: CodeRecordAdapter
     private val extractor = CodeExtractor()
 
-    /** 当前选中的 Tab（0=未取件, 1=已取件） */
-    private var currentTab = 0
-
     /** 将 dp 值转换为 px */
     private fun Float.toPx(): Int = (this * resources.displayMetrics.density).toInt()
     private fun Int.toPx(): Int = (this * resources.displayMetrics.density).toInt()
@@ -122,7 +119,7 @@ class MainActivity : AppCompatActivity() {
             addTab(newTab().setText("已取件 (0)"))
             setOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
                 override fun onTabSelected(tab: TabLayout.Tab?) {
-                    tab?.let { currentTab = it.position }
+                    tab?.let { viewModel.setCurrentTab(it.position) }
                 }
                 override fun onTabUnselected(tab: TabLayout.Tab?) {}
                 override fun onTabReselected(tab: TabLayout.Tab?) {}
@@ -173,28 +170,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeRecords() {
-        // 观察未取件记录
+        // 观察当前 Tab 对应的列表（由 ViewModel.currentRecords 自动切换）
+        lifecycleScope.launch {
+            viewModel.currentRecords.collect { list ->
+                adapter.submitList(list)
+                binding.layoutEmpty.visibility =
+                    if (list.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+            }
+        }
+
+        // 观察未取件数量，更新 Tab 文字
         lifecycleScope.launch {
             viewModel.notPickedUpRecords.collect { list ->
-                if (currentTab == 0) {
-                    adapter.submitList(list)
-                    binding.layoutEmpty.visibility =
-                        if (list.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
-                }
-                // 更新 Tab 数量
                 updateTabText(0, "未取件", list.size)
             }
         }
 
-        // 观察已取件记录
+        // 观察已取件数量，更新 Tab 文字
         lifecycleScope.launch {
             viewModel.pickedUpRecords.collect { list ->
-                if (currentTab == 1) {
-                    adapter.submitList(list)
-                    binding.layoutEmpty.visibility =
-                        if (list.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
-                }
-                // 更新 Tab 数量
                 updateTabText(1, "已取件", list.size)
             }
         }
@@ -524,6 +518,10 @@ class MainActivity : AppCompatActivity() {
         return when (item.itemId) {
             R.id.action_settings -> {
                 startActivity(Intent(this, SettingsActivity::class.java))
+                true
+            }
+            R.id.action_about -> {
+                startActivity(Intent(this, AboutActivity::class.java))
                 true
             }
             R.id.action_logs -> {

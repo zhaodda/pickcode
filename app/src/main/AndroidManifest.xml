@@ -72,6 +72,12 @@
             android:exported="false"
             android:parentActivityName=".ui.activity.MainActivity" />
 
+        <!-- 关于页面 -->
+        <activity
+            android:name=".ui.activity.AboutActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.activity.MainActivity" />
+
         <!-- 运行日志查看器 -->
         <activity
             android:name=".ui.activity.LogViewerActivity"

@@ -22,22 +22,21 @@
             app:titleTextAppearance="@style/TextAppearance.PickCode.Title"
             app:navigationIconTint="@color/text_primary" />
 
-    </com.google.android.material.appbar.AppBarLayout>
+        <!-- 分类 Tab：未取件 / 已取件 -->
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tabLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/bg_primary"
+            app:tabMode="fixed"
+            app:tabGravity="fill"
+            app:tabTextAppearance="@style/TextAppearance.PickCode.TabText"
+            app:tabSelectedTextColor="@color/accent_primary"
+            app:tabTextColor="@color/text_hint"
+            app:tabIndicatorColor="@color/accent_primary"
+            app:tabIndicatorHeight="2dp" />
 
-    <!-- 分类 Tab：未取件 / 已取件 -->
-    <com.google.android.material.tabs.TabLayout
-        android:id="@+id/tabLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/bg_primary"
-        app:tabMode="fixed"
-        app:tabGravity="fill"
-        app:tabTextAppearance="@style/TextAppearance.PickCode.TabText"
-        app:tabSelectedTextColor="@color/accent_primary"
-        app:tabTextColor="@color/text_hint"
-        app:tabIndicatorColor="@color/accent_primary"
-        app:tabIndicatorHeight="2dp"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+    </com.google.android.material.appbar.AppBarLayout>
 
     <!-- 历史列表 -->
     <androidx.recyclerview.widget.RecyclerView

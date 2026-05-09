@@ -6,6 +6,7 @@
 
     <!-- UI -->
     <string name="action_settings">设置</string>
+    <string name="action_about">ℹ️ 关于</string>
     <string name="action_clear_history">清空历史</string>
     <string name="fab_capture">识别验证码</string>
     <string name="empty_title">还没有识别记录</string>
@@ -26,12 +27,20 @@
     <string name="pref_auto_start_summary">设备重启后自动启动码住服务</string>
     <string name="pref_auto_copy_title">识别后自动复制</string>
     <string name="pref_auto_copy_summary">提取到验证码后立即写入剪贴板</string>
-    <string name="pref_overlay_title">悬浮窗设置</string>
-    <string name="pref_dismiss_timeout_title">悬浮窗自动消失</string>
+    <string name="pref_a11y_title">无障碍服务</string>
+    <string name="pref_a11y_summary_on">已开启 ✅ — 可正常识别屏幕取件码</string>
+    <string name="pref_a11y_summary_off">未开启 ⚠️ — 通知栏/磁贴识别将无法使用，点击前往开启</string>
     <string name="pref_vibrate_title">识别成功震动</string>
     <string name="pref_vibrate_summary">提取到验证码时轻微震动提示</string>
     <string name="pref_about_title">关于</string>
     <string name="pref_version_title">版本</string>
+
+    <!-- About -->
+    <string name="about_app_name">码住</string>
+    <string name="about_subtitle">PickCode — 智能取件码识别</string>
+    <string name="about_feature_title">功能介绍</string>
+    <string name="about_feature_text">• 一键识别屏幕取件码：通知栏按钮、快捷磁贴、主界面手动输入\n\n• 支持多种取件码类型：快递取件码、外卖取餐码、停车码等\n\n• 自动分类管理：未取件/已取件 Tab 分类，点击标记取件状态\n\n• 长按记录快速复制取件码到剪贴板\n\n• 完全本地运行，无需联网，不收集任何个人信息</string>
+    <string name="about_version_format">版本 %s</string>
 
     <!-- Accessibility Service -->
     <string name="accessibility_service_description">码住无障碍服务\n\n用于截取屏幕内容并识别取件码/验证码。\n\n• 读取屏幕截图\n• 自动识别快递取件码、外卖取餐码等验证码\n\n不会收集任何个人信息，所有处理均在本地完成。</string>

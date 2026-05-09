@@ -1,17 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string-array name="dismiss_timeout_labels">
-        <item>5 秒</item>
-        <item>10 秒</item>
-        <item>15 秒（默认）</item>
-        <item>30 秒</item>
-        <item>不自动消失</item>
-    </string-array>
-    <string-array name="dismiss_timeout_values">
-        <item>5000</item>
-        <item>10000</item>
-        <item>15000</item>
-        <item>30000</item>
-        <item>0</item>
-    </string-array>
+    <!-- 已废弃：悬浮窗设置相关数组（悬浮窗功能已移除） -->
 </resources>
