@@ -48,11 +48,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # 5. 构建 Debug APK
+      # 5. 恢复固定 Debug 签名（可选）
+      #    将本机 ~/.android/debug.keystore base64 后写入
+      #    GitHub Secrets: ANDROID_DEBUG_KEYSTORE_BASE64
+      #    这样本机 debug 包和 Actions debug 包可互相覆盖安装。
+      - name: Restore fixed debug keystore
+        env:
+          ANDROID_DEBUG_KEYSTORE_BASE64: ${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_DEBUG_KEYSTORE_BASE64" ]; then
+            echo "No fixed debug keystore configured; using runner-generated debug keystore."
+            exit 0
+          fi
+          mkdir -p ~/.android
+          printf '%s' "$ANDROID_DEBUG_KEYSTORE_BASE64" | base64 --decode > ~/.android/debug.keystore
+          chmod 600 ~/.android/debug.keystore
+
+      # 6. 构建 Debug APK
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
 
-      # 6. 上传 Artifact（保留 7 天）
+      # 7. 上传 Artifact（保留 7 天）
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -60,7 +76,7 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 7
 
-      # 7. 打印 APK 信息
+      # 8. 打印 APK 信息
       - name: Show APK info
         run: |
           echo "=== Build outputs ==="
