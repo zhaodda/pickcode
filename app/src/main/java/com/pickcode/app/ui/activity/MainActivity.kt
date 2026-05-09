@@ -165,7 +165,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showManualInputDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_manual_input, null)
+        val dialogView = try {
+            layoutInflater.inflate(R.layout.dialog_manual_input, null)
+        } catch (e: Exception) {
+            AppLog.e("MainActivity", "手动输入弹窗布局加载失败: ${e.javaClass.simpleName}: ${e.message}", e)
+            showSimpleManualInputDialog()
+            return
+        }
 
         val groupInputMode = dialogView.findViewById<MaterialButtonToggleGroup>(R.id.group_input_mode)
         val inputLayout = dialogView.findViewById<TextInputLayout>(R.id.input_layout_manual)
@@ -176,24 +182,32 @@ class MainActivity : AppCompatActivity() {
         // 默认：粘贴短信模式
         var isPasteMode = true
 
-        groupInputMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
-            if (!isChecked) return@addOnButtonCheckedListener
-
-            isPasteMode = checkedId == R.id.btn_mode_paste
-            inputLayout.hint = if (isPasteMode) {
+        fun applyInputMode(pasteMode: Boolean) {
+            isPasteMode = pasteMode
+            inputLayout.hint = if (pasteMode) {
                 "在此粘贴整条取件码短信"
             } else {
                 "输入取件码"
             }
-            inputLayout.placeholderText = if (isPasteMode) {
+            inputLayout.placeholderText = if (pasteMode) {
                 "例如：【丰巢】您的包裹已到达，取件码 5-8-3-2"
             } else {
                 "例如：6-8-3-2"
             }
-            etInput.minLines = if (isPasteMode) 4 else 1
-            etInput.maxLines = if (isPasteMode) 6 else 1
-            layoutType.visibility = if (isPasteMode) View.GONE else View.VISIBLE
+            etInput.minLines = if (pasteMode) 4 else 1
+            etInput.maxLines = if (pasteMode) 6 else 1
+            layoutType.visibility = if (pasteMode) View.GONE else View.VISIBLE
         }
+
+        groupInputMode.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+
+            applyInputMode(checkedId == R.id.btn_mode_paste)
+        }
+
+        groupInputMode.check(R.id.btn_mode_paste)
+        chipGroupCodeType.check(R.id.chip_type_express)
+        applyInputMode(pasteMode = true)
 
         MaterialAlertDialogBuilder(this)
             .setView(dialogView)
@@ -210,6 +224,28 @@ class MainActivity : AppCompatActivity() {
                     else -> CodeType.EXPRESS.ordinal
                 }
                 submitManualInput(inputText, isPasteMode, selectedOrdinal)
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun showSimpleManualInputDialog() {
+        val editText = EditText(this).apply {
+            hint = "粘贴短信或输入取件码"
+            minLines = 3
+            maxLines = 6
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("添加验证码")
+            .setView(editText)
+            .setPositiveButton("添加") { _, _ ->
+                val inputText = editText.text.toString().trim()
+                if (inputText.isBlank()) {
+                    Snackbar.make(binding.root, "内容不能为空", Snackbar.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                submitManualInput(inputText, isPasteMode = true, selectedTypeOrdinal = CodeType.EXPRESS.ordinal)
             }
             .setNegativeButton("取消", null)
             .show()
