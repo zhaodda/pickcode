@@ -33,7 +33,9 @@
 
 ## 识别架构
 
-![PickCode 识别架构](./docs/architecture.png)
+<p align="center">
+  <img src="docs/architecture.png" alt="PickCode 识别架构" width="100%">
+</p>
 
 主流程：
 
@@ -46,7 +48,9 @@
 
 ## 项目结构
 
-![PickCode 项目结构](./docs/project-structure.png)
+<p align="center">
+  <img src="docs/project-structure.png" alt="PickCode 项目结构" width="100%">
+</p>
 
 主要目录：
 
