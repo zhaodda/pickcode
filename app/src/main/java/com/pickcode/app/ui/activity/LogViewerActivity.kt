@@ -15,6 +15,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.pickcode.app.R
@@ -46,7 +48,7 @@ class LogViewerActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.title = "\uD83D\uDCDD 运行日志"
+        supportActionBar?.title = getString(R.string.log_viewer_title)
 
         setupFilterChips()
         setupRecyclerView()
@@ -54,7 +56,7 @@ class LogViewerActivity : AppCompatActivity() {
     }
 
     override fun onSupportNavigateUp(): Boolean {
-        onBackPressed()
+        onBackPressedDispatcher.onBackPressed()
         return true
     }
 
@@ -113,10 +115,10 @@ class LogViewerActivity : AppCompatActivity() {
             else -> String.format("%.1fMB", totalSizeBytes / (1024.0 * 1024.0))
         }
 
-        binding.tvStats.text = buildString {
-            append("共 $totalCount 条")
-            if (currentFilter != null) append("（筛选显示 $filteredCount 条）")
-            append(" · $sizeStr")
+        binding.tvStats.text = if (currentFilter != null) {
+            getString(R.string.log_stats_filtered_format, totalCount, filteredCount, sizeStr)
+        } else {
+            getString(R.string.log_stats_format, totalCount, sizeStr)
         }
     }
 
@@ -138,24 +140,24 @@ class LogViewerActivity : AppCompatActivity() {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)
-            putExtra(Intent.EXTRA_SUBJECT, "码住运行日志")
+            putExtra(Intent.EXTRA_SUBJECT, getString(R.string.log_share_subject))
         }
-        startActivity(Intent.createChooser(intent, "分享运行日志"))
+        startActivity(Intent.createChooser(intent, getString(R.string.log_share_chooser)))
     }
 
     private fun confirmClearLogs() {
         AlertDialog.Builder(this)
-            .setTitle("清空日志")
-            .setMessage("确定要删除所有运行日志吗？\n此操作不可恢复。")
-            .setPositiveButton("清空") { _, _ ->
+            .setTitle(R.string.log_clear_title)
+            .setMessage(R.string.log_clear_message)
+            .setPositiveButton(R.string.log_clear_positive) { _, _ ->
                 AppLog.clearAllLogs()
                 adapter.submitList(emptyList())
                 binding.emptyView.visibility = View.VISIBLE
                 binding.recyclerView.visibility = View.GONE
-                binding.tvStats.text = "共 0 条"
-                Toast.makeText(this, "日志已清空", Toast.LENGTH_SHORT).show()
+                binding.tvStats.text = getString(R.string.log_stats_format, 0, "0B")
+                Toast.makeText(this, R.string.log_cleared, Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(R.string.action_cancel, null)
             .show()
     }
 
@@ -166,23 +168,17 @@ class LogViewerActivity : AppCompatActivity() {
             append("\n${entry.message}")
             entry.detail?.let { append("\n$it") }
         }
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("log_entry", text))
-        Toast.makeText(this, "已复制到剪贴板", Toast.LENGTH_SHORT).show()
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.log_clipboard_label), text))
+        Toast.makeText(this, R.string.log_copied, Toast.LENGTH_SHORT).show()
     }
 
     // ━━ Adapter ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     class LogAdapter(private val onItemClick: (AppLog.Entry) -> Unit) :
-        RecyclerView.Adapter<LogAdapter.LogViewHolder>() {
+        ListAdapter<AppLog.Entry, LogAdapter.LogViewHolder>(DIFF) {
 
         private val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-        private var items = emptyList<AppLog.Entry>()
-
-        fun submitList(list: List<AppLog.Entry>) {
-            items = list
-            notifyDataSetChanged()
-        }
 
         inner class LogViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             private val levelIndicator: View = itemView.findViewById(R.id.levelIndicator)
@@ -213,7 +209,10 @@ class LogViewerActivity : AppCompatActivity() {
 
                 if (!entry.triggerFrom.isNullOrBlank()) {
                     tvTrigger.visibility = View.VISIBLE
-                    tvTrigger.text = "via ${formatTriggerLabel(entry.triggerFrom)}"
+                    tvTrigger.text = itemView.context.getString(
+                        R.string.log_trigger_format,
+                        formatTriggerLabel(entry.triggerFrom)
+                    )
                     tvTrigger.setBackgroundResource(
                         when (entry.triggerFrom) {
                             "notification" -> R.drawable.bg_chip_notification
@@ -229,10 +228,15 @@ class LogViewerActivity : AppCompatActivity() {
 
                 tvMessage.text = entry.message
 
-                if (!entry.detail.isNullOrBlank()) {
+                val detail = entry.detail
+                if (!detail.isNullOrBlank()) {
                     tvDetail.visibility = View.VISIBLE
-                    val lines = entry.detail!!.lines()
-                    tvDetail.text = if (lines.size > 3) lines.take(3).joinToString("\n") + "\n..." else entry.detail
+                    val lines = detail.lines()
+                    tvDetail.text = if (lines.size > 3) {
+                        lines.take(3).joinToString("\n") + "\n..."
+                    } else {
+                        detail
+                    }
                 } else {
                     tvDetail.visibility = View.GONE
                 }
@@ -255,9 +259,19 @@ class LogViewerActivity : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: LogViewHolder, position: Int) {
-            holder.bind(items[position])
+            holder.bind(getItem(position))
         }
 
-        override fun getItemCount(): Int = items.size
+        companion object {
+            private val DIFF = object : DiffUtil.ItemCallback<AppLog.Entry>() {
+                override fun areItemsTheSame(oldItem: AppLog.Entry, newItem: AppLog.Entry): Boolean =
+                    oldItem.timestamp == newItem.timestamp &&
+                        oldItem.level == newItem.level &&
+                        oldItem.source == newItem.source
+
+                override fun areContentsTheSame(oldItem: AppLog.Entry, newItem: AppLog.Entry): Boolean =
+                    oldItem == newItem
+            }
+        }
     }
 }

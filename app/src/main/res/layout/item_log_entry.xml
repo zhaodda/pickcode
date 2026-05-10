@@ -59,11 +59,11 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:text="14:00:00"
                     android:textSize="12sp"
                     android:textColor="@color/text_hint"
                     android:fontFamily="monospace"
-                    android:includeFontPadding="false" />
+                    android:includeFontPadding="false"
+                    tools:text="14:00:00" />
 
                 <TextView
                     android:id="@+id/tvLogSource"
@@ -71,11 +71,11 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginStart="8dp"
-                    android:text="CaptureActivity"
                     android:textSize="12sp"
                     android:textColor="@color/text_secondary"
                     android:fontFamily="monospace"
-                    android:includeFontPadding="false" />
+                    android:includeFontPadding="false"
+                    tools:text="CaptureActivity" />
 
                 <TextView
                     android:id="@+id/tvLogTrigger"
@@ -84,7 +84,7 @@
                     android:layout_marginStart="6dp"
                     android:paddingHorizontal="6dp"
                     android:paddingVertical="1dp"
-                    android:textSize="10sp"
+                    android:textSize="11sp"
                     android:textColor="@color/white"
                     android:visibility="gone"
                     android:includeFontPadding="false" />

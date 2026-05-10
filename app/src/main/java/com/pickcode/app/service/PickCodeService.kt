@@ -50,7 +50,7 @@ class PickCodeService : Service() {
          *
          * @param from 触发来源，notification/tile 会先关闭面板再提取
          */
-        fun triggerCapture(context: Context, from: String = "auto") {
+        fun triggerCapture(from: String = "auto") {
             AppLog.i("PickCodeService", "triggerCapture 被调用 [from=$from]", from)
 
             // 直接调用无障碍服务提取屏幕文字（传入来源以决定是否折叠面板）
@@ -84,11 +84,7 @@ class PickCodeService : Service() {
                 putExtra(EXTRA_MANUAL_RAW, rawText)
             }
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
+                context.startForegroundService(intent)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -127,7 +123,7 @@ class PickCodeService : Service() {
             ACTION_TRIGGER -> {
                 Log.d(TAG, "ACTION_TRIGGER received")
                 AppLog.i("PickCodeService", "收到 ACTION_TRIGGER 广播", "notification")
-                triggerCapture(this@PickCodeService, "notification")
+                triggerCapture("notification")
             }
             ACTION_STOP    -> { Log.d(TAG, "ACTION_STOP received"); stopSelf() }
             ACTION_MANUAL_INPUT -> handleManualInput(intent)
@@ -192,11 +188,11 @@ class PickCodeService : Service() {
 
         return NotificationCompat.Builder(this, PickCodeApp.CHANNEL_PERSISTENT)
             .setSmallIcon(R.drawable.ic_notify)
-            .setContentTitle("码住 已就绪")
-            .setContentText("点击打开主界面，或用下方按钮立即识别")
+            .setContentTitle(getString(R.string.notification_title))
+            .setContentText(getString(R.string.notification_text))
             .setContentIntent(mainIntent)
-            .addAction(0, "\uD83D\uDCEE 立即识别", captureIntent)
-            .addAction(0, "停止服务", stopIntent)
+            .addAction(0, getString(R.string.notification_action_capture), captureIntent)
+            .addAction(0, getString(R.string.notification_stop), stopIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()

@@ -52,6 +52,7 @@ android {
         viewBinding true
         buildConfig true   // 启用 BuildConfig 生成，供 SettingsFragment 读取版本号
     }
+
 }
 
 dependencies {

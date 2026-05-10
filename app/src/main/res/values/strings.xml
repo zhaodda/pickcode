@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- App -->
     <string name="app_name">码住</string>
     <string name="tile_label">码住识别</string>
@@ -9,21 +9,49 @@
     <string name="action_about">关于</string>
     <string name="action_clear_history">清空历史</string>
     <string name="action_logs">运行日志</string>
-    <string name="fab_capture">识别验证码</string>
     <string name="empty_title">还没有识别记录</string>
-    <string name="empty_subtitle">点击下方按钮或通知栏/快捷开关来识别</string>
+    <string name="empty_subtitle">可截屏识别、通知栏触发、或手动输入取件码</string>
+    <string name="empty_icon">📭</string>
+    <string name="action_add">添加</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_confirm_delete">确认删除</string>
 
     <!-- Notifications -->
     <string name="notification_title">码住 已就绪</string>
-    <string name="notification_text">点击立即识别屏幕取件码</string>
+    <string name="notification_text">点击打开主界面，或用下方按钮立即识别</string>
     <string name="notification_stop">停止服务</string>
-    <string name="manual_input_title">手动输入取件码</string>
-    <string name="manual_input_paste_hint">在此粘贴整条取件码短信…\n例如：【丰巢】您有一个包裹，取件码：5-8-3-2</string>
+    <string name="notification_action_capture">📮 立即识别</string>
+    <string name="notification_action_copy">📮 复制</string>
+    <string name="notification_no_result_title">未找到取件码</string>
+    <string name="notification_no_result_text">屏幕上未识别到有效验证码，请重试</string>
+    <string name="notification_error_title">识别失败</string>
+    <string name="notification_error_text">识别出现错误，请重试</string>
+    <string name="notification_channel_persistent">码住运行中</string>
+    <string name="notification_channel_persistent_desc">保持服务运行的常驻通知，不会弹出或发声</string>
+    <string name="notification_channel_code">取件码提醒</string>
+    <string name="notification_channel_code_desc">识别到的取件码、取餐码等验证码</string>
+    <string name="notification_content_code">取件码：%1$s</string>
+    <string name="notification_content_code_address">取件码：%1$s  📍%2$s</string>
+    <string name="manual_dialog_title">添加验证码</string>
+    <string name="manual_dialog_subtitle">粘贴短信自动解析，也可以直接填写号码</string>
+    <string name="manual_input_paste_hint" tools:ignore="TypographyDashes">在此粘贴整条取件码短信…\n例如：【丰巢】您有一个包裹，取件码：5-8-3-2</string>
     <string name="manual_input_manual_hint">输入取件码（如：6–8位数字/字母）</string>
-    <string name="btn_manual_input">\uD83D\uDCDD 手动输入</string>
+    <string name="manual_input_paste_placeholder" tools:ignore="TypographyDashes">例如：【丰巢】您的包裹已到达，取件码 5-8-3-2</string>
+    <string name="manual_input_manual_placeholder" tools:ignore="TypographyDashes">例如：6-8-3-2</string>
+    <string name="manual_mode_paste">粘贴短信</string>
+    <string name="manual_mode_manual">手动填写</string>
+    <string name="manual_type_label">验证码类型</string>
+    <string name="manual_type_express">快递</string>
+    <string name="manual_type_food">取餐</string>
+    <string name="manual_type_parking">停车</string>
+    <string name="manual_type_other">其他</string>
+    <string name="btn_manual_input">✏️ 手动输入取件码</string>
+    <string name="manual_input_simple_hint">粘贴短信或输入取件码</string>
 
     <!-- Settings -->
+    <string name="pref_advanced_title">高级</string>
     <string name="pref_general_title">通用</string>
+    <string name="pref_log_title">日志</string>
     <string name="pref_auto_start_title">开机自启</string>
     <string name="pref_auto_start_summary">设备重启后自动启动码住服务</string>
     <string name="pref_auto_copy_title">识别后自动复制</string>
@@ -34,16 +62,70 @@
     <string name="pref_vibrate_title">识别成功震动</string>
     <string name="pref_vibrate_summary">提取到验证码时轻微震动提示</string>
     <string name="pref_about_title">关于</string>
+    <string name="pref_about_summary">版本信息、隐私政策等</string>
     <string name="pref_version_title">版本</string>
     <string name="pref_log_retention_title">自动删除日志</string>
     <string name="pref_log_retention_summary">超过 %1$d 天的日志将被自动删除</string>
+    <string name="pref_log_retention_never">不自动删除</string>
+    <string name="pref_log_retention_days_choice">%1$d 天</string>
+    <string name="pref_log_viewer_summary">查看历史运行记录</string>
+    <string name="settings_header_version_format">PickCode v%1$s</string>
+    <string name="settings_version_value_format">v%1$s</string>
 
     <!-- About -->
     <string name="about_app_name">码住</string>
     <string name="about_subtitle">PickCode — 智能取件码识别</string>
     <string name="about_feature_title">功能介绍</string>
-    <string name="about_feature_text">• 一键识别屏幕取件码：通知栏按钮、快捷磁贴、主界面手动输入\n\n• 支持多种取件码类型：快递取件码、外卖取餐码、停车码等\n\n• 自动分类管理：未取件/已取件 Tab 分类，点击标记取件状态\n\n• 长按记录快速复制取件码到剪贴板\n\n• 完全本地运行，无需联网，不收集任何个人信息</string>
+    <string name="about_feature_scan_icon">📷</string>
+    <string name="about_feature_scan_cd">识别</string>
+    <string name="about_feature_scan_title">一键识别取件码</string>
+    <string name="about_feature_scan_subtitle">通知栏 / 快捷磁贴 / 手动输入</string>
+    <string name="about_feature_type_icon">📦</string>
+    <string name="about_feature_type_cd">类型</string>
+    <string name="about_feature_type_title">多种取件码类型</string>
+    <string name="about_feature_type_subtitle">快递 / 外卖 / 停车码等</string>
+    <string name="about_feature_privacy_icon">🔒</string>
+    <string name="about_feature_privacy_cd">隐私</string>
+    <string name="about_feature_privacy_title">完全本地，保护隐私</string>
+    <string name="about_feature_privacy_subtitle">无需联网，不收集个人信息</string>
     <string name="about_version_format">版本 %s</string>
+
+    <!-- Code list -->
+    <string name="code_type_format">%1$s %2$s</string>
+    <string name="address_with_pin_format">📍 %1$s</string>
+    <string name="cd_favorite">收藏</string>
+    <string name="cd_delete">删除</string>
+    <string name="tag_picked_up">已取件</string>
+    <string name="clipboard_label_code">取件码</string>
+    <string name="toast_copied_code">已复制：%1$s</string>
+
+    <!-- Log viewer -->
+    <string name="log_viewer_title">📝 运行日志</string>
+    <string name="log_chip_all">📋 全部</string>
+    <string name="log_chip_error">❌ 错误</string>
+    <string name="log_chip_warn">⚠️ 警告</string>
+    <string name="log_chip_info">ℹ️ 信息</string>
+    <string name="log_chip_debug">🛈 调试</string>
+    <string name="log_stats_empty">共 0 条 · 0KB</string>
+    <string name="log_stats_format">共 %1$d 条 · %2$s</string>
+    <string name="log_stats_filtered_format">共 %1$d 条（筛选显示 %2$d 条） · %3$s</string>
+    <string name="log_empty_icon">📋</string>
+    <string name="log_empty_title">暂无运行日志</string>
+    <string name="log_empty_subtitle">使用通知栏、磁贴或主按钮后会自动记录</string>
+    <string name="log_menu_share">分享日志</string>
+    <string name="log_menu_clear">清空日志</string>
+    <string name="log_share_subject">码住运行日志</string>
+    <string name="log_share_chooser">分享运行日志</string>
+    <string name="log_clear_title">清空日志</string>
+    <string name="log_clear_message">确定要删除所有运行日志吗？\n此操作不可恢复。</string>
+    <string name="log_clear_positive">清空</string>
+    <string name="log_cleared">日志已清空</string>
+    <string name="log_clipboard_label">log_entry</string>
+    <string name="log_copied">已复制到剪贴板</string>
+    <string name="log_trigger_format">via %1$s</string>
+    <string name="log_export_title">=== 码住运行日志 ===</string>
+    <string name="log_export_time">导出时间: %1$s</string>
+    <string name="log_export_count">共 %1$d 条记录</string>
 
     <!-- Accessibility Service -->
     <string name="accessibility_service_description">码住无障碍服务\n\n用于在你主动点击识别时读取当前屏幕可见文字和控件描述，并在本地解析取件码/验证码。\n\n• 不截图、不录屏\n• 不联网上传\n• 不在后台持续读取屏幕内容\n\n所有处理均在本地完成。</string>

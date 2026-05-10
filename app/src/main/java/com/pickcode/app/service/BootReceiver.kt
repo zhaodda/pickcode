@@ -3,7 +3,6 @@ package com.pickcode.app.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.preference.PreferenceManager
 
 /**
@@ -17,10 +16,6 @@ class BootReceiver : BroadcastReceiver() {
         if (!prefs.getBoolean("auto_start_on_boot", false)) return
 
         val serviceIntent = Intent(context, PickCodeService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(serviceIntent)
-        } else {
-            context.startService(serviceIntent)
-        }
+        context.startForegroundService(serviceIntent)
     }
 }

@@ -1,10 +1,9 @@
 package com.pickcode.app.util
 
 import android.content.Context
-import android.os.Build
 import android.os.Vibrator
 import android.os.VibrationEffect
-import android.preference.PreferenceManager
+import androidx.preference.PreferenceManager
 
 /**
  * 读取「识别成功震动」偏好，若开启则触发短震动
@@ -16,11 +15,6 @@ fun vibrateIfEnabled(context: Context) {
     val prefs = PreferenceManager.getDefaultSharedPreferences(context)
     if (!prefs.getBoolean("vibrate_on_success", true)) return
 
-    val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
-    } else {
-        @Suppress("DEPRECATION")
-        vibrator.vibrate(100)
-    }
+    val vibrator = context.getSystemService(Vibrator::class.java)
+    vibrator.vibrate(VibrationEffect.createOneShot(100, VibrationEffect.DEFAULT_AMPLITUDE))
 }

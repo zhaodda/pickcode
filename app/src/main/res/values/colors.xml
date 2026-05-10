@@ -17,24 +17,11 @@
     <!-- 边框 -->
     <color name="border_default">#E8E6F0</color>
 
-    <!-- 灵动岛 -->
-    <color name="island_bg">#1A1A2E</color>
-    <color name="island_text_primary">#E8E4FF</color>
-    <color name="island_text_secondary">#7F77DD</color>
-
     <!-- 功能色 -->
     <color name="white">#FFFFFF</color>
-    <color name="star_active">#EF9F27</color>
-    <color name="star_inactive">#B4B2A9</color>
-    <color name="danger">#E24B4A</color>
 
     <!-- 日志相关 -->
     <color name="divider">#1A000000</color>
-    <color name="bg_secondary">#F8F7FC</color>
-
-    <!-- 模式切换按钮文字 -->
-    <color name="text_mode_switch_selected">#534AB7</color>
-    <color name="text_mode_switch_normal">#8E8B98</color>
 
     <!-- 已取件状态 -->
     <color name="text_picked_up">#9E9E9E</color>

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- RadioButton 文字颜色选择器（模式切换） -->
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 选中态：白色文字（紫底） -->
-    <item android:state_checked="true"
-          android:color="@color/white" />
-    <!-- 未选中态：灰色文字 -->
-    <item android:color="@color/text_mode_switch_normal" />
-</selector>

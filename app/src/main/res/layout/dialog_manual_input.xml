@@ -14,7 +14,7 @@
         android:id="@+id/tv_manual_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="添加验证码"
+        android:text="@string/manual_dialog_title"
         android:textColor="@color/text_primary"
         android:textSize="20sp"
         android:textStyle="bold" />
@@ -25,7 +25,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
         android:layout_marginBottom="16dp"
-        android:text="粘贴短信自动解析，也可以直接填写号码"
+        android:text="@string/manual_dialog_subtitle"
         android:textColor="@color/text_secondary"
         android:textSize="13sp" />
 
@@ -45,7 +45,7 @@
             android:layout_weight="1"
             android:insetTop="0dp"
             android:insetBottom="0dp"
-            android:text="粘贴短信"
+            android:text="@string/manual_mode_paste"
             android:textColor="@color/mode_button_text"
             android:textSize="13sp"
             app:backgroundTint="@color/mode_button_bg"
@@ -61,7 +61,7 @@
             android:layout_weight="1"
             android:insetTop="0dp"
             android:insetBottom="0dp"
-            android:text="手动填写"
+            android:text="@string/manual_mode_manual"
             android:textColor="@color/mode_button_text"
             android:textSize="13sp"
             app:backgroundTint="@color/mode_button_bg"
@@ -77,7 +77,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="14dp"
-        android:hint="在此粘贴整条取件码短信"
+        android:hint="@string/manual_input_paste_hint"
         app:boxBackgroundColor="@color/bg_card"
         app:boxCornerRadiusBottomEnd="12dp"
         app:boxCornerRadiusBottomStart="12dp"
@@ -88,7 +88,7 @@
         app:boxStrokeWidthFocused="2dp"
         app:endIconMode="clear_text"
         app:hintTextColor="@color/accent_primary"
-        app:placeholderText="例如：【丰巢】您的包裹已到达，取件码 5-8-3-2"
+        app:placeholderText="@string/manual_input_paste_placeholder"
         app:placeholderTextColor="@color/text_hint">
 
         <com.google.android.material.textfield.TextInputEditText
@@ -118,7 +118,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="8dp"
-            android:text="验证码类型"
+            android:text="@string/manual_type_label"
             android:textColor="@color/text_secondary"
             android:textSize="13sp" />
 
@@ -137,7 +137,7 @@
                 style="@style/Widget.MaterialComponents.Chip.Choice"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="快递"
+                android:text="@string/manual_type_express"
                 android:textColor="@color/chip_choice_text"
                 app:checkedIconVisible="false"
                 app:chipBackgroundColor="@color/chip_choice_bg"
@@ -150,7 +150,7 @@
                 style="@style/Widget.MaterialComponents.Chip.Choice"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="取餐"
+                android:text="@string/manual_type_food"
                 android:textColor="@color/chip_choice_text"
                 app:checkedIconVisible="false"
                 app:chipBackgroundColor="@color/chip_choice_bg"
@@ -163,7 +163,7 @@
                 style="@style/Widget.MaterialComponents.Chip.Choice"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="停车"
+                android:text="@string/manual_type_parking"
                 android:textColor="@color/chip_choice_text"
                 app:checkedIconVisible="false"
                 app:chipBackgroundColor="@color/chip_choice_bg"
@@ -176,7 +176,7 @@
                 style="@style/Widget.MaterialComponents.Chip.Choice"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="其他"
+                android:text="@string/manual_type_other"
                 android:textColor="@color/chip_choice_text"
                 app:checkedIconVisible="false"
                 app:chipBackgroundColor="@color/chip_choice_bg"

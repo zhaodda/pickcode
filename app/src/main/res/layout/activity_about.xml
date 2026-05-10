@@ -3,8 +3,7 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/bg_primary">
+    android:layout_height="match_parent">
 
     <!-- ===== Hero 区域（沉浸式紫色顶栏）===== -->
     <com.google.android.material.appbar.AppBarLayout
@@ -117,10 +116,10 @@
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:gravity="center"
-                        android:text="📷"
+                        android:text="@string/about_feature_scan_icon"
                         android:textSize="22sp"
                         android:background="@drawable/bg_feature_icon_circle"
-                        android:contentDescription="识别" />
+                        android:contentDescription="@string/about_feature_scan_cd" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -132,7 +131,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="一键识别取件码"
+                            android:text="@string/about_feature_scan_title"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:textColor="@color/text_primary" />
@@ -141,7 +140,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="通知栏 / 快捷磁贴 / 手动输入"
+                            android:text="@string/about_feature_scan_subtitle"
                             android:textSize="12sp"
                             android:textColor="@color/text_secondary" />
 
@@ -173,10 +172,10 @@
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:gravity="center"
-                        android:text="📦"
+                        android:text="@string/about_feature_type_icon"
                         android:textSize="22sp"
                         android:background="@drawable/bg_feature_icon_circle"
-                        android:contentDescription="类型" />
+                        android:contentDescription="@string/about_feature_type_cd" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -188,7 +187,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="多种取件码类型"
+                            android:text="@string/about_feature_type_title"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:textColor="@color/text_primary" />
@@ -197,7 +196,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="快递 / 外卖 / 停车码等"
+                            android:text="@string/about_feature_type_subtitle"
                             android:textSize="12sp"
                             android:textColor="@color/text_secondary" />
 
@@ -229,10 +228,10 @@
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:gravity="center"
-                        android:text="🔒"
+                        android:text="@string/about_feature_privacy_icon"
                         android:textSize="22sp"
                         android:background="@drawable/bg_feature_icon_circle"
-                        android:contentDescription="隐私" />
+                        android:contentDescription="@string/about_feature_privacy_cd" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -244,7 +243,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="完全本地，保护隐私"
+                            android:text="@string/about_feature_privacy_title"
                             android:textSize="14sp"
                             android:textStyle="bold"
                             android:textColor="@color/text_primary" />
@@ -253,7 +252,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="无需联网，不收集个人信息"
+                            android:text="@string/about_feature_privacy_subtitle"
                             android:textSize="12sp"
                             android:textColor="@color/text_secondary" />
 

@@ -2,6 +2,7 @@ package com.pickcode.app.util
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.pickcode.app.R
 import java.io.File
 import java.io.FileWriter
 import java.text.SimpleDateFormat
@@ -31,6 +32,7 @@ object AppLog {
     private const val KEY_RETENTION_DAYS = "log_retention_days"
     private const val DEFAULT_RETENTION_DAYS = 7
     private const val MAX_ENTRIES_PER_DAY = 2000
+    private const val LOG_LOCALE_TAG = "zh-CN"
 
     /** 日志级别 */
     enum class Level(val label: String, val prefix: String) {
@@ -51,14 +53,17 @@ object AppLog {
     )
 
     private val executor = Executors.newSingleThreadExecutor()
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
-    private val fileDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.forLanguageTag(LOG_LOCALE_TAG))
+    private val fileDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT)
 
     @Volatile
     private var logDir: File? = null
+    @Volatile
+    private var appContext: Context? = null
 
     /** 初始化（在 Application.onCreate 或首次使用前调用一次） */
     fun init(context: Context) {
+        appContext = context.applicationContext
         if (logDir == null) {
             logDir = File(context.filesDir, LOG_DIR).apply { mkdirs() }
             cleanOldLogs(context)
@@ -226,11 +231,18 @@ object AppLog {
 
     /** 导出全部日志为纯文本（用于分享） */
     fun exportAsText(): String {
+        val context = appContext
         val entries = readEntries(limit = 2000)
         return buildString {
-            appendLine("=== 码住运行日志 ===")
-            appendLine("导出时间: ${dateFormat.format(Date())}")
-            appendLine("共 ${entries.size} 条记录")
+            appendLine(context?.getString(R.string.log_export_title) ?: "=== 码住运行日志 ===")
+            appendLine(
+                context?.getString(R.string.log_export_time, dateFormat.format(Date()))
+                    ?: "导出时间: ${dateFormat.format(Date())}"
+            )
+            appendLine(
+                context?.getString(R.string.log_export_count, entries.size)
+                    ?: "共 ${entries.size} 条记录"
+            )
             appendLine("=".repeat(50))
             // entries 已是最新在前，导出时反转回时间正序
             entries.reversed().forEach { entry ->

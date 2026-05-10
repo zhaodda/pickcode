@@ -2,10 +2,8 @@ package com.pickcode.app.ui.activity
 
 import android.Manifest
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.service.quicksettings.TileService
@@ -40,10 +38,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MainViewModel by viewModels()
     private val extractor = CodeExtractor()
-
-    /** 将 dp 值转换为 px */
-    private fun Float.toPx(): Int = (this * resources.displayMetrics.density).toInt()
-    private fun Int.toPx(): Int = (this * resources.displayMetrics.density).toInt()
 
     // Android 13+ 通知权限申请
     private val notificationPermissionLauncher =
@@ -185,14 +179,14 @@ class MainActivity : AppCompatActivity() {
         fun applyInputMode(pasteMode: Boolean) {
             isPasteMode = pasteMode
             inputLayout.hint = if (pasteMode) {
-                "在此粘贴整条取件码短信"
+                getString(R.string.manual_input_paste_hint)
             } else {
-                "输入取件码"
+                getString(R.string.manual_input_manual_hint)
             }
             inputLayout.placeholderText = if (pasteMode) {
-                "例如：【丰巢】您的包裹已到达，取件码 5-8-3-2"
+                getString(R.string.manual_input_paste_placeholder)
             } else {
-                "例如：6-8-3-2"
+                getString(R.string.manual_input_manual_placeholder)
             }
             etInput.minLines = if (pasteMode) 4 else 1
             etInput.maxLines = if (pasteMode) 6 else 1
@@ -211,7 +205,7 @@ class MainActivity : AppCompatActivity() {
 
         MaterialAlertDialogBuilder(this)
             .setView(dialogView)
-            .setPositiveButton("添加") { _, _ ->
+            .setPositiveButton(R.string.action_add) { _, _ ->
                 val inputText = etInput.text.toString().trim()
                 if (inputText.isBlank()) {
                     Snackbar.make(binding.root, "内容不能为空", Snackbar.LENGTH_SHORT).show()
@@ -225,21 +219,21 @@ class MainActivity : AppCompatActivity() {
                 }
                 submitManualInput(inputText, isPasteMode, selectedOrdinal)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(R.string.action_cancel, null)
             .show()
     }
 
     private fun showSimpleManualInputDialog() {
         val editText = EditText(this).apply {
-            hint = "粘贴短信或输入取件码"
+            hint = getString(R.string.manual_input_simple_hint)
             minLines = 3
             maxLines = 6
         }
 
         MaterialAlertDialogBuilder(this)
-            .setTitle("添加验证码")
+            .setTitle(R.string.manual_dialog_title)
             .setView(editText)
-            .setPositiveButton("添加") { _, _ ->
+            .setPositiveButton(R.string.action_add) { _, _ ->
                 val inputText = editText.text.toString().trim()
                 if (inputText.isBlank()) {
                     Snackbar.make(binding.root, "内容不能为空", Snackbar.LENGTH_SHORT).show()
@@ -247,7 +241,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 submitManualInput(inputText, isPasteMode = true, selectedTypeOrdinal = CodeType.EXPRESS.ordinal)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(R.string.action_cancel, null)
             .show()
     }
 
@@ -314,14 +308,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestTileListeningState() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            try {
-                TileService.requestListeningState(
-                    this,
-                    ComponentName(this, com.pickcode.app.tile.PickCodeTileService::class.java)
-                )
-            } catch (_: Exception) { /* 忽略 */ }
-        }
+        try {
+            TileService.requestListeningState(
+                this,
+                ComponentName(this, com.pickcode.app.tile.PickCodeTileService::class.java)
+            )
+        } catch (_: Exception) { /* 忽略 */ }
     }
 
     private fun showTileGuideIfNeeded() {
@@ -395,11 +387,7 @@ class MainActivity : AppCompatActivity() {
         binding.root.postDelayed({
             try {
                 val i = Intent(this, PickCodeService::class.java)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(i)
-                } else {
-                    startService(i)
-                }
+                startForegroundService(i)
             } catch (e: Exception) {
                 e.printStackTrace()
                 Snackbar.make(
@@ -434,7 +422,7 @@ class MainActivity : AppCompatActivity() {
                 MaterialAlertDialogBuilder(this)
                     .setTitle("清空历史")
                     .setMessage("确定要删除全部识别记录吗？此操作不可撤销。")
-                    .setPositiveButton("确认删除") { _, _ ->
+                    .setPositiveButton(R.string.action_confirm_delete) { _, _ ->
                         viewModel.clearAll()
                         Snackbar.make(binding.root, "已清空所有历史记录", Snackbar.LENGTH_SHORT).show()
                     }

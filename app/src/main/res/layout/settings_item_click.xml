@@ -14,9 +14,10 @@
     android:background="?android:attr/selectableItemBackground">
 
     <ImageView
-        android:id="@+id/icon"
+        android:tag="setting_icon"
         android:layout_width="24dp"
         android:layout_height="24dp"
+        android:importantForAccessibility="no"
         android:scaleType="centerInside" />
 
     <LinearLayout
@@ -24,10 +25,11 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:orientation="vertical"
-        android:paddingStart="16dp">
+        android:paddingStart="16dp"
+        android:paddingEnd="0dp">
 
         <TextView
-            android:id="@+id/title"
+            android:tag="setting_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="15sp"
@@ -35,7 +37,7 @@
             android:fontFamily="sans-serif-medium" />
 
         <TextView
-            android:id="@+id/summary"
+            android:tag="setting_summary"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="12sp"
@@ -45,10 +47,11 @@
     </LinearLayout>
 
     <ImageView
-        android:id="@+id/chevron"
+        android:tag="setting_chevron"
         android:layout_width="20dp"
         android:layout_height="20dp"
         android:src="@drawable/ic_chevron_right"
+        android:importantForAccessibility="no"
         app:tint="@color/text_hint" />
 
 </LinearLayout>

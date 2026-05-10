@@ -4,8 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/bg_primary">
+    android:layout_height="match_parent">
 
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBarLayout"
@@ -64,7 +63,7 @@
             android:layout_height="52dp"
             android:minWidth="180dp"
             android:paddingHorizontal="28dp"
-            android:text="✏️ 手动输入取件码"
+            android:text="@string/btn_manual_input"
             android:textColor="@color/white"
             android:textSize="15sp"
             app:cornerRadius="26dp"

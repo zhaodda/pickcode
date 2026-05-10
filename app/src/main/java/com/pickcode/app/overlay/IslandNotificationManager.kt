@@ -6,7 +6,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color.parseColor
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.pickcode.app.R
 import com.pickcode.app.data.model.CodeRecord
@@ -82,9 +81,9 @@ class IslandNotificationManager(private val context: Context) {
 
         // 构建通知内容：有地址时显示地址 + 取件码
         val contentText = if (record.address.isNotEmpty()) {
-            "取件码：${record.code}  📍${record.address}"
+            context.getString(R.string.notification_content_code_address, record.code, record.address)
         } else {
-            "取件码：${record.code}"
+            context.getString(R.string.notification_content_code, record.code)
         }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_CODE)
@@ -98,7 +97,7 @@ class IslandNotificationManager(private val context: Context) {
             .setAutoCancel(false)          // 不自动消失，等用户复制或手动关闭
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .addAction(0, "\uD83D\uDCEE 复制", copyIntent)
+            .addAction(0, context.getString(R.string.notification_action_copy), copyIntent)
             .build()
 
         notificationManager.notify(notificationId, notification)
@@ -112,8 +111,8 @@ class IslandNotificationManager(private val context: Context) {
     /** 展示"未找到验证码"提示 */
     fun showNoResult() {
         val n = NotificationCompat.Builder(context, CHANNEL_CODE)
-            .setContentTitle("未找到取件码")
-            .setContentText("屏幕上未识别到有效验证码，请重试")
+            .setContentTitle(context.getString(R.string.notification_no_result_title))
+            .setContentText(context.getString(R.string.notification_no_result_text))
             .setSmallIcon(R.drawable.ic_notify)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
@@ -124,8 +123,8 @@ class IslandNotificationManager(private val context: Context) {
     /** 展示识别错误提示 */
     fun showError() {
         val n = NotificationCompat.Builder(context, CHANNEL_CODE)
-            .setContentTitle("识别失败")
-            .setContentText("识别出现错误，请重试")
+            .setContentTitle(context.getString(R.string.notification_error_title))
+            .setContentText(context.getString(R.string.notification_error_text))
             .setSmallIcon(R.drawable.ic_notify)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
@@ -146,17 +145,17 @@ class IslandNotificationManager(private val context: Context) {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_CODE, "取件码提醒", NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "识别到的取件码、取餐码等验证码"
-                setShowBadge(true)
-                enableLights(false)
-                enableVibration(false)
-                setSound(null, null)
-            }
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_CODE,
+            context.getString(R.string.notification_channel_code),
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = context.getString(R.string.notification_channel_code_desc)
+            setShowBadge(true)
+            enableLights(false)
+            enableVibration(false)
+            setSound(null, null)
         }
+        notificationManager.createNotificationChannel(channel)
     }
 }

@@ -1,9 +1,7 @@
 package com.pickcode.app.ui.activity
 
 import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
-import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -24,9 +22,7 @@ class AboutActivity : AppCompatActivity() {
         window.statusBarColor = Color.TRANSPARENT
 
         // 深色 Hero 背景 → 状态栏图标用浅色（白色）
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            window.decorView.systemUiVisibility = 0
-        }
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
 
         binding = ActivityAboutBinding.inflate(layoutInflater)
         setContentView(binding.root)

@@ -3,8 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@color/bg_primary">
+    android:orientation="vertical">
 
     <!-- 工具栏 -->
     <com.google.android.material.appbar.MaterialToolbar
@@ -60,35 +59,35 @@
                             style="@style/Widget.MaterialComponents.Chip.Filter"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="📋 全部" />
+                            android:text="@string/log_chip_all" />
 
                         <com.google.android.material.chip.Chip
                             android:id="@+id/chipError"
                             style="@style/Widget.MaterialComponents.Chip.Filter"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="❌ 错误" />
+                            android:text="@string/log_chip_error" />
 
                         <com.google.android.material.chip.Chip
                             android:id="@+id/chipWarn"
                             style="@style/Widget.MaterialComponents.Chip.Filter"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="⚠️ 警告" />
+                            android:text="@string/log_chip_warn" />
 
                         <com.google.android.material.chip.Chip
                             android:id="@+id/chipInfo"
                             style="@style/Widget.MaterialComponents.Chip.Filter"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="ℹ️ 信息" />
+                            android:text="@string/log_chip_info" />
 
                         <com.google.android.material.chip.Chip
                             android:id="@+id/chipDebug"
                             style="@style/Widget.MaterialComponents.Chip.Filter"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="🛈 调试" />
+                            android:text="@string/log_chip_debug" />
 
                     </com.google.android.material.chip.ChipGroup>
 
@@ -98,7 +97,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:text="共 0 条 · 0KB"
+                        android:text="@string/log_stats_empty"
                         android:textSize="12sp"
                         android:textColor="@color/text_hint" />
 
@@ -128,14 +127,15 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📋"
+                    android:text="@string/log_empty_icon"
+                    android:importantForAccessibility="no"
                     android:textSize="48sp" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:text="暂无运行日志"
+                    android:text="@string/log_empty_title"
                     android:textSize="16sp"
                     android:textColor="@color/text_secondary" />
 
@@ -143,7 +143,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="使用通知栏、磁贴或主按钮后会自动记录"
+                    android:text="@string/log_empty_subtitle"
                     android:textSize="13sp"
                     android:textColor="@color/text_hint" />
 

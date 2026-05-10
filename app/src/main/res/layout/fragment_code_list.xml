@@ -5,8 +5,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/fragmentRoot"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/bg_primary">
+    android:layout_height="match_parent">
 
     <!-- 列表 -->
     <androidx.recyclerview.widget.RecyclerView
@@ -32,14 +31,15 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="📭"
+            android:text="@string/empty_icon"
+            android:importantForAccessibility="no"
             android:textSize="52sp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="还没有识别记录"
+            android:text="@string/empty_title"
             android:textSize="16sp"
             android:textColor="@color/text_secondary" />
 
@@ -47,7 +47,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="可截屏识别、通知栏触发、或手动输入取件码"
+            android:text="@string/empty_subtitle"
             android:textSize="13sp"
             android:textColor="@color/text_hint" />
 
