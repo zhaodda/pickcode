@@ -216,25 +216,6 @@ class PickCodeAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * 折叠通知栏/快速设置面板（备用方案）
-     *
-     * 注意：此方法通过反射调用 StatusBarManager.collapsePanels()，
-     * 在 Android 8.0+ (API 26+) 上对第三方 App 基本无效（系统限制）。
-     * 主流程已改用 performGlobalAction(GLOBAL_ACTION_BACK)，此方法仅作兜底保留。
-     */
-    @Suppress("unused")
-    private fun collapseNotificationPanel() {
-        try {
-            val statusBarService = getSystemService("statusbar")
-            val method = statusBarService?.javaClass?.getMethod("collapsePanels")
-            method?.invoke(statusBarService)
-            Log.d(TAG, "collapseNotificationPanel: called (may be no-op on API 26+)")
-        } catch (e: Exception) {
-            Log.w(TAG, "collapseNotificationPanel failed (expected on API 26+)", e)
-        }
-    }
-
-    /**
      * 实际执行节点树遍历 + 正则匹配
      *
      * 包含面板残留检测：如果提取到的文字看起来像是通知栏/QS 面板的内容

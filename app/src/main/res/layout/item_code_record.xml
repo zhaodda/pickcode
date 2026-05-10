@@ -75,8 +75,8 @@
             android:layout_height="36dp"
             android:src="@drawable/ic_star"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:tint="@color/selector_star"
             android:contentDescription="收藏"
+            app:tint="@color/selector_star"
             app:layout_constraintEnd_toStartOf="@id/btnDelete"
             app:layout_constraintTop_toBottomOf="@id/tvTime"
             app:layout_constraintBottom_toBottomOf="@id/tvCode" />
@@ -87,8 +87,8 @@
             android:layout_height="36dp"
             android:src="@drawable/ic_delete"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:tint="@color/text_hint"
             android:contentDescription="删除"
+            app:tint="@color/text_hint"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@id/tvTime"
             app:layout_constraintBottom_toBottomOf="@id/tvCode" />

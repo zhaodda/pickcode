@@ -27,23 +27,16 @@ class PickCodeTileService : TileService() {
         private const val TAG = "PickCodeTileService"
 
     /** QS 面板收起后等待多久再提取文字（毫秒） */
-    private const val PANEL_COLLAPSE_DELAY_MS = 200L
+    private const val PANEL_COLLAPSE_DELAY_MS = 350L
 
     /**
      * Tile 磁贴点击后的时间线设计：
      *
-     * ══ 为什么不用 GLOBAL_ACTION_BACK 兜底？══
-     * v1.3.x 曾在 T=500ms 执行 collapsePanelIfNeeded() (GLOBAL_ACTION_BACK) 作为"兜底"，
-     * 但这会导致严重副作用：
-     * - 如果 startActivityAndCollapse() 已成功关闭面板，多余的 BACK 会作用到用户正在看的 App
-     * - 表现为：识别完成后当前 App 自动返回上一页（用户反馈的问题）
-     * - 澎湃OS中通知栏和QS是独立窗口，BACK的行为不可预测
-     *
-     * ══ 现行方案（v2.0.0）：短延迟(350ms) + 残留重试 ══
-     * 1. T=0:   startActivityAndCollapse() — 官方API关闭QS面板（~200-300ms动画）
+     * ══ 现行方案（v2.0.0）：单次 BACK 收起 + 残留重试 ══
+     * 1. T=0:   Tile 点击时 QS 面板处于展开状态，通过无障碍服务执行一次 BACK 收起面板
      * 2. T=350: extractFromScreenText("tile") — 提取屏幕文字
      *    如果 performExtract() 检测到面板残留（looksLikePanelText），
-     *    才会执行 BACK 并自动重试（这是有条件的，不会误触）
+     *    才会再次执行 BACK 并自动重试（这是有条件的，不会误触）
      */
     }
 
@@ -74,19 +67,18 @@ class PickCodeTileService : TileService() {
             updateTile()
         }
 
-        // 2. 收起 QS 面板 — TileService 官方 API
-        //    startActivityAndCollapse 专门用于关闭 QS 面板（右边下拉的快速设置）
-        try {
-            startActivityAndCollapse(android.content.Intent())
-            Log.d(TAG, "QS panel collapsed via startActivityAndCollapse")
-        } catch (e: Exception) {
-            Log.w(TAG, "startActivityAndCollapse failed", e)
+        // 2. 收起 QS 面板
+        //    Android 14 起旧的 startActivityAndCollapse(Intent) 会抛异常；
+        //    PendingIntent 版本会启动 Activity，不适合"识别当前屏幕"这个场景。
+        if (PickCodeAccessibilityService.isAvailable) {
+            PickCodeAccessibilityService.collapsePanelIfNeeded()
+            Log.d(TAG, "QS panel collapse requested via Accessibility BACK")
+        } else {
+            AppLog.w("PickCodeTileService", "无障碍服务未连接，无法收起 QS 面板", "tile")
         }
 
         // 3. 延迟执行文字提取
-        //    短延迟策略（350ms）：只依赖 startActivityAndCollapse() 关闭 QS 面板，
-        //    等待面板动画完成（~200-300ms）后立即提取。
-        //    不再执行无条件的 GLOBAL_ACTION_BACK 兜底（会导致当前App被误返回）。
+        //    短延迟策略（350ms）：等待面板动画完成（~200-300ms）后立即提取。
         //    如果面板确实没关好，performExtract() 的 looksLikePanelText() 残留检测会自动处理重试。
         handler.postDelayed({
             AppLog.i("PickCodeTileService", "延迟${PANEL_COLLAPSE_DELAY_MS}ms后开始提取屏幕文字", "tile")

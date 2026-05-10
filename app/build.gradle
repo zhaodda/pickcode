@@ -22,22 +22,19 @@ android {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            // APK 文件名格式：PickCode-v版本名-版本码.apk（如 PickCode-v1.1.0-5.apk）
-            applicationVariants.all { variant ->
-                variant.outputs.all {
-                    def appName = "PickCode"
-                    def version = "-v${defaultConfig.versionName}"
-                    def code = "-${defaultConfig.versionCode}"
-                    outputFileName = "${appName}${version}${code}.apk"
-                }
-            }
         }
-        debug {
-            // Debug 包也加版本号，方便区分
-            applicationVariants.all { variant ->
-                variant.outputs.all {
-                    outputFileName = "PickCode-v${defaultConfig.versionName}-debug.apk"
-                }
+        debug {}
+    }
+
+    // APK 文件名格式：
+    // release: PickCode-v版本名-版本码.apk（如 PickCode-v1.1.0-5.apk）
+    // debug:   PickCode-v版本名-debug.apk
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            if (variant.buildType.name == "release") {
+                outputFileName = "PickCode-v${defaultConfig.versionName}-${defaultConfig.versionCode}.apk"
+            } else if (variant.buildType.name == "debug") {
+                outputFileName = "PickCode-v${defaultConfig.versionName}-debug.apk"
             }
         }
     }
