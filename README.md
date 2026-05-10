@@ -1,182 +1,132 @@
-# 码住 (PickCode)
+# 码住 PickCode
 
-> 一键识别快递取件码 / 取餐码，通过通知栏展示，随取随用。
+> 一键识别快递取件码、取餐码、停车码，并通过 Android 通知栏快速复制。
 
 [![Build](https://github.com/zhaodda/pickcode/actions/workflows/build.yml/badge.svg)](https://github.com/zhaodda/pickcode/actions)
 
----
+## 项目简介
 
-## 功能特性
+码住是一个本地优先的 Android 取件码识别工具。用户主动点击通知栏按钮、Quick Settings Tile 或在 App 内手动输入后，应用会读取当前屏幕可见文字并在本机解析验证码，识别结果以高优先级通知展示，点击通知按钮即可复制。
 
-| 功能 | 说明 |
-|------|------|
-| 屏幕文字提取 | 通过无障碍服务（AccessibilityService）读取屏幕节点树文字，无需截图、无需 OCR 授权弹窗 |
-| 通知栏展示 | 识别结果通过标准 Android 高优先级通知横幅展示，支持多条通知同时存在 |
-| 一键复制 | 每条通知带"复制"按钮，点击即复制到剪贴板并关闭该条通知 |
-| 通知栏入口 | 前台常驻通知，点击即触发屏幕识别 |
-| Quick Settings Tile | 下拉快捷开关一键触发 |
-| 手动输入 | 支持粘贴短信自动解析 + 手动填写验证码 |
-| 智能分类 | 自动区分快递码 / 取餐码 / 停车码，对应颜色高亮 |
-| 历史记录 | Room 本地存储，支持收藏、复制、删除 |
-| 运行日志 | 完整的运行日志系统，方便排查问题 |
+当前主链路不截图、不录屏、不上传网络，识别和历史记录都在设备本地完成。
 
-## 支持的验证码类型
+## 核心能力
 
-- **快递取件码** - 菜鸟驿站、蜂鸟、京东快递、顺丰等 4~8 位取件码
-- **餐饮取餐码** - 喜茶、奈雪等奶茶 / 外卖自提 3~6 位取餐号
-- **停车取车码** - 1~4 位停车场短码
-- **通用数字验证码** - 4~8 位数字兜底匹配
+| 能力 | 说明 |
+| --- | --- |
+| 屏幕文字提取 | 通过 `AccessibilityService` 读取屏幕节点树文字，主链路无需截图或录屏授权 |
+| 本地规则解析 | `CodeExtractor` 基于纯文本正则匹配，支持取件码、取餐码、停车码和通用验证码 |
+| 通知栏展示 | 每次识别结果生成一条独立的高优先级通知，支持多条通知并存 |
+| 一键复制 | 通知 Action 调用 `CopyCodeReceiver`，复制后精确关闭当前通知 |
+| 快捷入口 | 支持常驻通知按钮、Quick Settings Tile、App 内手动输入 |
+| 历史记录 | Room 本地存储最近 50 条记录，支持收藏、删除和标记已取件 |
+| 运行日志 | 内置日志查看器，方便定位识别、通知和权限问题 |
 
-## 技术架构
+## 支持类型
 
-### 整体架构：MVVM
+| 类型 | 示例场景 | 规则概览 |
+| --- | --- | --- |
+| 快递取件码 | 菜鸟驿站、丰巢、顺丰、京东快递等 | 数字、字母、连字符混合取件码，并可提取驿站地址 |
+| 餐饮取餐码 | 奶茶、外卖、自提订单 | 3 到 6 位数字或少量字母前缀 |
+| 停车取车码 | 停车场、车牌相关短码 | 字母加短数字组合 |
+| 通用验证码 | 其他短信或页面验证码 | 4 到 8 位数字兜底匹配 |
 
-![架构图](./docs/architecture.png)
+## 识别架构
 
-### 核心技术方案
+![PickCode 识别架构](./docs/architecture.png)
 
-#### 文字提取 — 无障碍节点树遍历
+主流程：
 
-不截图、不走 OCR，直接读取 Android 系统提供的 UI 节点树：
-
-1. `PickCodeAccessibilityService.getRootInActiveWindow()` 获取当前窗口根节点
-2. `getAllTextFromNode()` 递归遍历所有子节点，拼接 `getText()` + `getContentDescription()`
-3. `CodeExtractor.extractFromText()` 在纯文本中正则匹配取件码
-
-**优势**：零权限弹窗、零网络请求、完全离线、即时响应。
-
-#### 通知栏展示 — 标准 NotificationCompat
-
-每次识别到取件码发送一条独立的高优先级横幅通知（`PRIORITY_HIGH`）：
-
-```
-识别成功 → CodeRecord(类型, 验证码)
-                │
-        IslandNotificationManager.showCode()
-                │
-        NotificationCompat.Builder (CHANNEL_CODE, IMPORTANCE_HIGH)
-                │
-        ├── setContentTitle("📦 快递取件")
-        ├── setContentText("取件码：06675")
-        ├── setColor / setColorized（按类型着色）
-        └── addAction("📋 复制", copyPendingIntent)
-                        │
-              notificationManager.notify(递增ID, notification)
-
-用户点击"复制" → CopyCodeReceiver → 剪贴板 → cancel(本条通知ID)
-```
+1. 用户通过通知栏、QS Tile 或手动输入主动触发。
+2. `PickCodeAccessibilityService` 调用 `getRootInActiveWindow()` 读取当前屏幕节点树。
+3. 递归拼接节点的 `text` 与 `contentDescription`。
+4. `CodeExtractor.extractFromText()` 在纯文本中匹配验证码并分类。
+5. 成功时写入 Room，并通过 `IslandNotificationManager` 发送可复制通知。
+6. 失败或异常时发送轻量提示通知，便于用户重试。
 
 ## 项目结构
 
-```
-app/src/main/java/com/pickcode/app/
-├── PickCodeApp.kt                          # Application 入口
-│
-├── data/
-│   ├── model/CodeRecord.kt                 # 数据模型（Room Entity）
-│   ├── db/                                 # Room DAO + Database
-│   │   ├── CodeRecordDao.kt
-│   │   └── PickCodeDatabase.kt
-│   └── repository/CodeRepository.kt
-│
-├── ocr/
-│   └── CodeExtractor.kt                    # 正则提取核心（纯文本入口）
-│
-├── overlay/
-│   └── IslandNotificationManager.kt         # 取件码通知管理器（标准通知）
-│
-├── service/
-│   ├── PickCodeAccessibilityService.kt     # ★ 核心：无障碍节点树文字提取
-│   ├── PickCodeService.kt                  # 前台常驻服务（触发中转）
-│   ├── CopyCodeReceiver.kt                 # "复制"按钮广播接收器
-│   └── BootReceiver.kt                     # 开机自启
-│
-├── tile/
-│   └── PickCodeTileService.kt              # Quick Settings Tile
-│
-├── ui/
-│   ├── activity/
-│   │   ├── MainActivity.kt                 # 主界面（手动输入 + 历史记录）
-│   │   ├── LogViewerActivity.kt            # 运行日志查看器
-│   │   ├── SettingsActivity.kt             # 设置页
-│   │   └── PermissionActivity.kt           # 权限引导页
-│   ├── fragment/SettingsFragment.kt
-│   ├── adapter/CodeRecordAdapter.kt
-│   └── viewmodel/MainViewModel.kt
-│
-└── util/
-    └── AppLog.kt                          # 运行日志管理器
-```
+![PickCode 项目结构](./docs/project-structure.png)
+
+主要目录：
+
+| 目录 | 职责 |
+| --- | --- |
+| `app/src/main/java/com/pickcode/app/service` | 无障碍服务、前台服务、复制广播、开机自启 |
+| `app/src/main/java/com/pickcode/app/ocr` | 文本解析与验证码提取规则 |
+| `app/src/main/java/com/pickcode/app/overlay` | 通知栏展示与通知 Action 管理 |
+| `app/src/main/java/com/pickcode/app/data` | Room 实体、DAO、数据库与仓库 |
+| `app/src/main/java/com/pickcode/app/ui` | 主界面、设置、日志、历史列表和 ViewModel |
+| `app/src/main/res` | XML 布局、主题、图标、菜单和权限配置 |
 
 ## 技术栈
 
-| 类别 | 技术 | 版本 |
-|------|------|------|
-| 语言 | Kotlin | — |
-| 架构 | MVVM + Coroutines + StateFlow | — |
-| UI | Material Design 3 | 1.11.0 |
-| 数据库 | Room | 2.6.1 |
-| 生命周期 | Lifecycle ViewModel / LiveData | 2.7.0 |
-| 协程 | kotlinx-coroutines-android | 1.7.3 |
-| 设置页 | PreferenceX | 1.2.1 |
+| 类别 | 技术 / 版本 |
+| --- | --- |
+| 语言 | Kotlin 1.9.22 |
+| 构建 | Android Gradle Plugin 8.2.2、Gradle Wrapper 8.2 |
+| 架构 | MVVM、Coroutines、Flow / LiveData |
+| UI | Android XML ViewBinding、Material Components 1.11.0 |
+| 数据库 | Room 2.6.1 |
+| 生命周期 | AndroidX Lifecycle 2.7.0 |
+| 快捷入口 | Android Quick Settings Tile |
+| 通知 | NotificationCompat、高优先级通知 Channel |
 
-**编译环境**：compileSdk 34 / minSdk 26 / targetSdk 33
+编译配置：`compileSdk 34`、`minSdk 26`、`targetSdk 34`、JVM 17。
 
-## 所需权限
+## 权限说明
 
-| 权限 | 用途 | 必须 |
-|------|------|------|
-| `BIND_ACCESSIBILITY_SERVICE` | 无障碍服务（屏幕文字提取） | ✅ 必须 |
-| `POST_NOTIFICATIONS` | 通知栏展示（Android 13+） | ✅ 必须 |
-| `FOREGROUND_SERVICE` (specialUse) | 前台常驻服务保活 | ✅ 必须 |
-| `RECEIVE_BOOT_COMPLETED` | 开机自启服务 | ⚪ 可选 |
+| 权限 | 用途 | 是否必须 |
+| --- | --- | --- |
+| `BIND_ACCESSIBILITY_SERVICE` | 绑定无障碍服务，用于用户主动触发时读取屏幕可见文字 | 必须 |
+| `POST_NOTIFICATIONS` | Android 13+ 展示通知栏识别结果 | 必须 |
+| `FOREGROUND_SERVICE` | 前台常驻服务 | 必须 |
+| `FOREGROUND_SERVICE_SPECIAL_USE` | Android 14+ 前台服务 specialUse 类型声明 | 必须 |
+| `RECEIVE_BOOT_COMPLETED` | 设备重启后自动启动服务 | 可选 |
+| `VIBRATE` | 识别成功时震动反馈 | 可选 |
 
-> 已移除 `SYSTEM_ALERT_WINDOW`（悬浮窗）、`FOREGROUND_SERVICE_MEDIA_PROJECTION`（录屏）。
+已移除悬浮窗和录屏相关权限：`SYSTEM_ALERT_WINDOW`、`FOREGROUND_SERVICE_MEDIA_PROJECTION`。
 
-## 首次使用指南
+## 首次使用
 
-1. 安装后打开「码住」，授予**通知权限**
-2. 进入 **设置 → 无障碍**，找到「码住」并开启无障碍服务
-3. 添加 **Quick Settings Tile**（快捷开关）：下拉通知面板 → 编辑 ✏️ → 找到「码住」拖入
-4. 使用任意方式触发识别：
-   - 点击通知栏上的 **「立即识别」** 按钮
-   - 下拉 QS 面板点击 **「码住」** 磁贴
-   - 在 App 内点击 **手动输入** 按钮
-5. 识别到的验证码以通知横幅形式弹出，点击 **复制** 即可复制到剪贴板
+1. 安装并打开「码住」，授予通知权限。
+2. 进入系统设置里的无障碍服务，找到「码住」并开启。
+3. 可选：下拉通知面板，编辑 Quick Settings，把「码住识别」磁贴拖入快捷区。
+4. 打开包含取件码的短信、快递页面或通知内容。
+5. 点击常驻通知里的「立即识别」，或点击 QS Tile。
+6. 识别成功后，在弹出的通知中点击「复制」。
 
 ## 构建
 
-### 环境要求
+环境要求：
 
-- JDK 17+
-- Android SDK（build-tools 34.0.0、platforms android-34）
-- Gradle 8.2（由 wrapper 管理）
+| 工具 | 要求 |
+| --- | --- |
+| JDK | 17+ |
+| Android SDK | platform android-34、build-tools 34.x |
+| Gradle | 使用仓库内 `gradlew` |
 
 ```bash
 # Debug 包
 ./gradlew assembleDebug
-# 输出：app/build/outputs/apk/debug/PickCode-v1.x.x-debug.apk
+
+# 输出示例
+app/build/outputs/apk/debug/PickCode-v2.0.0-debug.apk
 ```
 
-GitHub Actions 自动打包：push 到 `main` 分支即可触发，APK 在 Actions → Artifacts 中下载。
+GitHub Actions 会在 push 或 pull request 到 `main` / `master` 时自动构建 Debug APK，并上传到 Actions Artifacts。
 
 ## 版本历史
 
 | 版本 | 要点 |
-|------|------|
-| v2.0.0 | 重构：移除超级岛模块，改为标准 Android 通知栏展示；支持多条通知同时存在 |
-| v1.5.1 | 修复超级岛 JSON 格式（添加 protocol:1、规范图片 key、对齐官方文档）|
-| v1.5.0 | 重构超级岛模块，剔除 OPPO/vivo 灵动岛代码（净减少 670 行）|
-| v1.4.2 | 超级岛参数调优（timeout/islandTimeout/enableFloat/reopen）|
-| v1.4.1 | 增加超级岛诊断日志链路 |
-| v1.4.0 | 修复 QS 磁贴误按 BACK 导致 App 返回上一页 |
-| v1.3.3 | 新增面板残留自动重试机制（looksLikePanelText）|
-| v1.3.2 | Tile 磁贴 startActivityAndCollapse 修复 |
-| v1.3.1 | GLOBAL_ACTION_BACK 替代无效的 collapsePanels 反射 |
-| v1.3.0 | 彻底弃用截屏方案，改为纯无障碍节点树文字提取 |
-| v1.1.0 | 新增运行日志系统；改用 AccessibilityService 截屏 |
+| --- | --- |
+| v2.0.0 | 移除超级岛模块，改为标准 Android 通知栏展示；支持多条通知同时存在 |
+| v1.5.1 | 修复超级岛 JSON 格式，补齐 `protocol:1` 与图片 key |
+| v1.5.0 | 重构超级岛模块，剔除 OPPO / vivo 灵动岛代码 |
+| v1.4.x | 优化超级岛参数、诊断日志和 QS Tile 行为 |
+| v1.3.0 | 弃用截屏方案，改为无障碍节点树文字提取 |
+| v1.1.0 | 新增运行日志系统 |
 | v1.0.3 | 新增手动输入功能 |
-| v1.0.2 | 闪退修复（targetSdk 34→33 + FGS type=specialUse）|
 
 ## License
 
